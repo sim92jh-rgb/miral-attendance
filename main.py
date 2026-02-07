@@ -61,17 +61,6 @@ st.set_page_config(
     layout="wide",
     initial_sidebar_state="expanded" # ⭐ 시작할 때 사이드바 강제 열림 (CSS로 버튼을 숨겨서 고정 효과)
 )
-# [수정된 코드] ==============================================
-
-# CSS 파일을 읽어오는 함수
-def local_css(file_name):
-    with open(file_name) as f:
-        st.markdown(f'<style>{f.read()}</style>', unsafe_allow_html=True)
-
-# style.css 파일 불러오기 (여기서 스타일이 적용됩니다)
-local_css("style.css")
-
-# [여기까지] =================================================
 
 COLOR_PRIMARY = "#2E7D32"
 SIDEBAR_COLOR = "#2E7D32"
@@ -196,6 +185,230 @@ BIBLE_VERSES = [
     "모든 성경은 하나님의 감동으로 된 것으로 교훈과 책망과 바르게 함과 의로 교육하기에 유익하니 (디모데후서 3:16)",
     "너는 말씀을 전파하라 때를 얻든지 못 얻든지 항상 힘쓰라 (디모데후서 4:2)"
 ]
+
+# 🎨 UI/UX 디자인 커스텀 CSS
+st.markdown(f"""
+<style>
+    /* ========================================
+       헤더 및 푸터 숨김
+       ======================================== */
+    header[data-testid="stHeader"] {{
+        display: none !important;
+    }}
+    footer {{
+        display: none !important;
+    }}
+    .block-container {{
+        padding-top: 0rem !important;
+        padding-bottom: 0rem !important;
+    }}
+
+    /* ========================================
+       사이드바 고정 및 스크롤 제거
+       ======================================== */
+    
+    /* 사이드바 접기/펼치기 버튼 숨김 */
+    [data-testid="stSidebarCollapseButton"] {{
+        display: none !important;
+    }}
+    [data-testid="stSidebarCollapsedControl"] {{
+        display: none !important;
+    }}
+
+    /* 사이드바 메인 컨테이너 */
+    section[data-testid="stSidebar"] {{
+        background-color: {SIDEBAR_COLOR} !important;
+        min-width: 250px !important;
+        max-width: 350px !important;
+        overflow: hidden !important;
+        display: block !important;
+        visibility: visible !important;
+        opacity: 1 !important;
+        position: relative !important;
+        z-index: 999999 !important;
+        height: 100vh !important;
+    }}
+    
+    /* 사이드바 내부 스크롤바 제거 */
+    section[data-testid="stSidebar"] > div {{
+        background-color: {SIDEBAR_COLOR} !important;
+        overflow: hidden !important;
+    }}
+    
+    /* 사이드바 내부 콘텐츠 여백 최소화 */
+    section[data-testid="stSidebar"] .block-container {{
+        padding-top: 1rem !important;
+        padding-bottom: 0rem !important;
+        margin-top: 0rem !important;
+        margin-bottom: 0rem !important;
+        overflow: hidden !important;
+    }}
+    
+    /* ========================================
+       메뉴 버튼 스타일
+       ======================================== */
+    
+    /* 라디오 버튼 제목 숨김 */
+    .stRadio > label {{
+        display: none !important;
+        height: 0px !important;
+        margin: 0px !important;
+        visibility: hidden !important;
+    }}
+    
+    /* 동그라미 체크박스 숨김 */
+    .stRadio div[role='radiogroup'] > label > div:first-child {{
+        display: none !important;
+    }}
+    
+    /* 첫 번째 버튼('메인') 숨김 */
+    .stRadio div[role='radiogroup'] > label:nth-child(1) {{
+        display: none !important;
+    }}
+
+    /* 메뉴 버튼 박스 디자인 */
+    .stRadio div[role='radiogroup'] > label {{
+        background-color: rgba(255, 255, 255, 0.15) !important;
+        border-radius: 10px !important;
+        padding: 15px 0px !important;
+        margin-bottom: 12px !important;
+        transition: all 0.3s ease !important;
+        border: none !important;
+        width: 200% !important;
+        margin-left: 17px !important;
+        margin-right: auto !important;
+        display: flex !important;
+        justify-content: center !important;
+        cursor: pointer !important;
+    }}
+    
+    /* 메뉴 버튼 호버 효과 */
+    .stRadio div[role='radiogroup'] > label:hover {{
+        background-color: rgba(255, 255, 255, 0.4) !important;
+        transform: translateX(0px) scale(1.02) !important;
+    }}
+    
+    /* 메뉴 버튼 선택 상태 */
+    .stRadio div[role='radiogroup'] > label[data-checked="true"] {{
+        background-color: {SIDEBAR_COLOR} !important;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.2) !important;
+    }}
+    
+    /* 메뉴 텍스트 스타일 */
+    .stRadio label p {{
+        color: #FFFFFF !important;
+        font-size: 1.15rem !important;
+        font-weight: 700 !important;
+        margin: 0 !important;
+    }}
+
+    /* ========================================
+       기타 UI 요소
+       ======================================== */
+    
+    /* Streamlit 장식 요소 숨김 */
+    [data-testid="stDecoration"] {{
+        display: none !important;
+    }}
+    [data-testid="stToolbar"] {{
+        display: none !important;
+    }}
+
+    /* 버전 텍스트 스타일 */
+    .version-text {{
+        color: #FFFFFF !important;
+        font-size: 0.8em !important;
+        font-weight: normal !important;
+        margin-bottom: 0px !important;
+        padding-bottom: 0px !important;
+    }}
+
+    /* 메인 제목 상단 라인 */
+    section[data-testid="stMain"] h1::before {{
+        content: "" !important;
+        display: block !important;
+        width: 100% !important;
+        height: 8px !important;
+        background-color: {SIDEBAR_COLOR} !important;
+        margin-bottom: 20px !important;
+        border-radius: 4px !important;
+    }}
+    
+    /* 기본 버튼 스타일 */
+    .stButton > button {{
+        background-color: {SIDEBAR_COLOR} !important;
+        color: white !important;
+        border-radius: 8px !important;
+        border: none !important;
+        font-weight: bold !important;
+    }}
+
+    /* Primary 버튼 스타일 */
+    button[kind="primary"] {{
+        background-color: {SIDEBAR_COLOR} !important;
+        border-color: {SIDEBAR_COLOR} !important;
+    }}
+
+    /* Form 제출 버튼 스타일 (기본) */
+    [data-testid="stFormSubmitButton"] button {{
+        background-color: {SIDEBAR_COLOR} !important;
+        border-color: {SIDEBAR_COLOR} !important;
+    }}
+
+    .stFormSubmitButton button[kind="primary"] {{
+        background-color: {SIDEBAR_COLOR} !important;
+        border-color: {SIDEBAR_COLOR} !important;
+    }}
+    
+    /* 정보 라벨 스타일 */
+    .info-label {{
+        font-size: 0.9em !important;
+        color: #666 !important;
+        margin-bottom: 0px !important;
+    }}
+    
+    /* 정보 값 스타일 */
+    .info-value {{
+        font-size: 1.2em !important;
+        color: #000 !important;
+        font-weight: 500 !important;
+        margin-bottom: 10px !important;
+    }}
+        
+    /* Webkit 브라우저 최적화 */
+    @supports (-webkit-appearance:none) {{
+        section[data-testid="stSidebar"] {{
+            -webkit-transform: translateZ(0) !important;
+            transform: translateZ(0) !important;
+        }}
+    }}
+
+    /* ========================================
+       이용자 관리 - 수정/삭제 버튼 색상 (수정됨)
+       ======================================== */
+    
+    /* 1. 수정하기 버튼 (뒤에서 2번째 컬럼 = 왼쪽 버튼) */
+    [data-testid="stForm"] [data-testid="column"]:nth-last-of-type(2) [data-testid="stFormSubmitButton"] button {{
+        background-color: #1E88E5 !important;
+        color: white !important;
+        border: none !important;
+    }}
+    [data-testid="stForm"] [data-testid="column"]:nth-last-of-type(2) [data-testid="stFormSubmitButton"] button:hover {{
+        background-color: #1565C0 !important;
+    }}
+
+    /* 2. 삭제하기 버튼 (뒤에서 1번째 컬럼 = 오른쪽 버튼) */
+    [data-testid="stForm"] [data-testid="column"]:nth-last-of-type(1) [data-testid="stFormSubmitButton"] button {{
+        background-color: #E53935 !important;
+        color: white !important;
+        border: none !important;
+    }}
+    [data-testid="stForm"] [data-testid="column"]:nth-last-of-type(1) [data-testid="stFormSubmitButton"] button:hover {{
+        background-color: #C62828 !important;
+    }}
+    
+</style>
+""", unsafe_allow_html=True)
 
 # -----------------------------------------------------------------------------
 # 2. 데이터베이스 연결
