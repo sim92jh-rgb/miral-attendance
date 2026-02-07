@@ -1,0 +1,113 @@
+/* ========================================
+   [1] 헤더, 푸터, 햄버거 메뉴 완벽 숨김
+   ======================================== */
+/* 상단 헤더 전체 (햄버거 메뉴 포함) 숨김 */
+header[data-testid="stHeader"] {
+    display: none !important;
+}
+
+/* 우측 상단 툴바(Deploy 버튼 등) 숨김 */
+[data-testid="stToolbar"] {
+    display: none !important;
+}
+
+/* 상단 장식 줄무늬 숨김 */
+[data-testid="stDecoration"] {
+    display: none !important;
+}
+
+/* 하단 푸터(Made with Streamlit) 숨김 */
+footer {
+    display: none !important;
+    visibility: hidden !important;
+}
+[data-testid="stFooter"] {
+    display: none !important;
+}
+
+/* 상단 여백 제거 */
+.block-container {
+    padding-top: 1rem !important;
+    padding-bottom: 0rem !important;
+}
+
+/* ========================================
+   [2] 사이드바 고정 및 스타일
+   ======================================== */
+/* 사이드바 접기/펼치기 버튼(X버튼/화살표) 숨김 */
+[data-testid="stSidebarCollapseButton"] {
+    display: none !important;
+}
+[data-testid="stSidebarCollapsedControl"] {
+    display: none !important;
+}
+
+/* 사이드바 배경색 및 크기 고정 */
+section[data-testid="stSidebar"] {
+    background-color: #2E7D32 !important; /* 초록색 */
+    min-width: 250px !important;
+    max-width: 350px !important;
+}
+
+/* ========================================
+   [3] 사이드바 메뉴(라디오 버튼) 디자인
+   ======================================== */
+/* 라디오 버튼의 동그라미 숨김 */
+.stRadio div[role='radiogroup'] > label > div:first-child {
+    display: none !important;
+}
+
+/* 첫 번째 메뉴('메인' 등) 숨기고 싶으면 아래 주석 해제 */
+/* .stRadio div[role='radiogroup'] > label:nth-child(1) { display: none !important; } */
+
+/* 메뉴 버튼 박스 스타일 */
+.stRadio div[role='radiogroup'] > label {
+    background-color: rgba(255, 255, 255, 0.15) !important;
+    border-radius: 10px !important;
+    padding: 15px 10px !important;
+    margin-bottom: 12px !important;
+    border: none !important;
+    color: white !important;
+    display: flex !important;
+    justify-content: center !important;
+    transition: all 0.3s ease !important;
+}
+
+/* 선택된 메뉴 스타일 */
+.stRadio div[role='radiogroup'] > label[data-checked="true"] {
+    background-color: #1B5E20 !important; /* 더 진한 초록 */
+    font-weight: bold !important;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.2) !important;
+}
+
+/* 메뉴 글자색 */
+.stRadio label p {
+    color: #FFFFFF !important;
+    font-size: 1.1rem !important;
+}
+
+/* ========================================
+   [4] 버튼 색상 커스텀
+   ======================================== */
+/* 기본 버튼 (초록색) */
+.stButton > button {
+    background-color: #2E7D32 !important;
+    color: white !important;
+    border: none !important;
+}
+
+/* Primary 버튼 */
+button[kind="primary"] {
+    background-color: #2E7D32 !important;
+    border-color: #2E7D32 !important;
+}
+
+/* 이용자 관리 - 수정 버튼 (파란색) */
+[data-testid="stForm"] [data-testid="column"]:nth-last-of-type(2) [data-testid="stFormSubmitButton"] button {
+    background-color: #1E88E5 !important;
+}
+
+/* 이용자 관리 - 삭제 버튼 (빨간색) */
+[data-testid="stForm"] [data-testid="column"]:nth-last-of-type(1) [data-testid="stFormSubmitButton"] button {
+    background-color: #E53935 !important;
+}
