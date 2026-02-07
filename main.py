@@ -413,7 +413,7 @@ st.markdown(f"""
 # -----------------------------------------------------------------------------
 # 2. 데이터베이스 연결
 # -----------------------------------------------------------------------------
-SHEET_URL = "https://docs.google.com/spreadsheets/d/1MRKhJYjuTp8dgAOndRzc9b0ztNHGPOMa2rK46Eb9q5E/edit?usp=sharing"
+SHEET_URL = "https://docs.google.com/spreadsheets/d/1MRKhJYjuTp8dgAOndRzc9b0ztNHGPOMa2rK46Eb9q5E/edit"
 
 @st.cache_resource
 def connect_db():
