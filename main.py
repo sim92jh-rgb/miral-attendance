@@ -62,44 +62,41 @@ st.set_page_config(
     initial_sidebar_state="expanded" # ⭐ 시작할 때 사이드바 강제 열림 (CSS로 버튼을 숨겨서 고정 효과)
 )
 
-# [수정된 코드] ------------------------------------------------
-# 🎨 UI 커스텀: Streamlit 기본 메뉴, 푸터, 헤더 완벽하게 숨기기
-hide_streamlit_style = """
-<style>
-    /* 1. 상단 헤더(햄버거 메뉴 포함) 숨기기 */
-    header[data-testid="stHeader"] {
-        display: none !important;
-    }
+# [여기부터 복사하세요] ==============================================
+# 🎨 UI 커스텀: 강력한 푸터/헤더 숨김 코드
+hide_decoration_bar_style = '''
+    <style>
+        /* 1. 상단 헤더 숨기기 */
+        header {visibility: hidden;}
+        
+        /* 2. 햄버거 메뉴 숨기기 */
+        #MainMenu {visibility: hidden;}
+        
+        /* 3. 푸터(Made with Streamlit) 숨기기 - display: none으로 공간 삭제 */
+        footer {
+            visibility: hidden !important;
+            display: none !important;
+            height: 0px !important;
+        }
+        
+        /* 4. 최신 버전용 푸터 숨기기 (이게 핵심일 수 있습니다) */
+        [data-testid="stFooter"] {
+            display: none !important;
+        }
+        
+        /* 5. 상단 데코레이션 바 숨기기 */
+        [data-testid="stDecoration"] {
+            display: none !important;
+        }
 
-    /* 2. 하단 푸터(Made with Streamlit) 숨기기 */
-    footer {
-        display: none !important;
-        visibility: hidden !important;
-    }
-    
-    /* 최신 버전 Streamlit 대응: 푸터 식별자 */
-    [data-testid="stFooter"] {
-        display: none !important;
-    }
-
-    /* 3. 우측 상단 툴바(Deploy 버튼 등) 숨기기 */
-    [data-testid="stToolbar"] {
-        display: none !important;
-    }
-
-    /* 4. 상단 무지개색 데코레이션 라인 숨기기 */
-    [data-testid="stDecoration"] {
-        display: none !important;
-    }
-
-    /* 5. 혹시 모를 하단 여백 제거 */
-    .main .block-container {
-        padding-bottom: 0rem !important;
-    }
-</style>
-"""
-st.markdown(hide_streamlit_style, unsafe_allow_html=True)
-# [여기까지] ------------------------------------------------
+        /* 6. 우측 상단 툴바 숨기기 */
+        [data-testid="stToolbar"] {
+            display: none !important;
+        }
+    </style>
+'''
+st.markdown(hide_decoration_bar_style, unsafe_allow_html=True)
+# [여기까지] ========================================================
 
 COLOR_PRIMARY = "#2E7D32"
 SIDEBAR_COLOR = "#2E7D32"
