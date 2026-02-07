@@ -61,43 +61,21 @@ st.set_page_config(
     layout="wide",
     initial_sidebar_state="expanded" # ⭐ 시작할 때 사이드바 강제 열림 (CSS로 버튼을 숨겨서 고정 효과)
 )
-
 # [여기부터 복사하세요] ==============================================
-# 🎨 UI 커스텀: 강력한 푸터/헤더 숨김 코드
-hide_decoration_bar_style = '''
-    <style>
-        /* 1. 상단 헤더 숨기기 */
-        header {visibility: hidden;}
-        
-        /* 2. 햄버거 메뉴 숨기기 */
-        #MainMenu {visibility: hidden;}
-        
-        /* 3. 푸터(Made with Streamlit) 숨기기 - display: none으로 공간 삭제 */
-        footer {
-            visibility: hidden !important;
-            display: none !important;
-            height: 0px !important;
-        }
-        
-        /* 4. 최신 버전용 푸터 숨기기 (이게 핵심일 수 있습니다) */
-        [data-testid="stFooter"] {
-            display: none !important;
-        }
-        
-        /* 5. 상단 데코레이션 바 숨기기 */
-        [data-testid="stDecoration"] {
-            display: none !important;
-        }
-
-        /* 6. 우측 상단 툴바 숨기기 */
-        [data-testid="stToolbar"] {
-            display: none !important;
-        }
-    </style>
-'''
-st.markdown(hide_decoration_bar_style, unsafe_allow_html=True)
+# 🎨 UI 커스텀: 공백 문자 제거한 클린 버전
+hide_ui_code = """
+<style>
+header {visibility: hidden !important;}
+#MainMenu {visibility: hidden !important;}
+footer {visibility: hidden !important;}
+[data-testid="stFooter"] {display: none !important;}
+[data-testid="stDecoration"] {display: none !important;}
+[data-testid="stToolbar"] {display: none !important;}
+[data-testid="stHeader"] {display: none !important;}
+</style>
+"""
+st.markdown(hide_ui_code, unsafe_allow_html=True)
 # [여기까지] ========================================================
-
 COLOR_PRIMARY = "#2E7D32"
 SIDEBAR_COLOR = "#2E7D32"
 
