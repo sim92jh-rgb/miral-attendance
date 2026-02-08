@@ -314,6 +314,39 @@ st.markdown(f"""
         display: none !important;
     }}
 
+    /* ========================================
+       우측 하단 GitHub 프로필 & Streamlit 로고 숨김 (추가)
+       ======================================== */
+    
+    /* GitHub 프로필 아바타 숨기기 */
+    [data-testid="appCreatorAvatar"] {{
+        display: none !important;
+    }}
+
+    /* 프로필 프리뷰 전체 컨테이너 숨기기 */
+    ._profilePreview_gzau3_63 {{
+        display: none !important;
+    }}
+
+    /* Streamlit 로고 링크 숨기기 */
+    ._link_gzau3_10 {{
+        display: none !important;
+    }}
+
+    /* 클래스명이 바뀔 수 있으니 보험용 - 프로필 관련 모두 숨김 */
+    div[class*="_profilePreview"] {{
+        display: none !important;
+    }}
+
+    div[class*="_profileImage"] {{
+        display: none !important;
+    }}
+
+    /* Streamlit 로고 SVG가 포함된 링크 모두 숨김 */
+    div[class*="_link_"] svg {{
+        display: none !important;
+    }}
+
     /* 버전 텍스트 스타일 */
     .version-text {{
         color: #FFFFFF !important;
