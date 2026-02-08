@@ -572,6 +572,72 @@ def get_worksheet(sh, name):
     except Exception as e:
         st.toast(f"⚠️ 구글 시트({name}) 로딩 지연: 잠시 후 다시 시도됩니다.", icon="⏳")
         return None
+========== 여기부터 추가 ==========
+@st.cache_data(ttl=300)  # 5분간 캐싱
+def load_sheet_data(sheet_id):
+    """구글 시트 데이터를 캐싱하여 로드"""
+    sh = connect_db()
+    if not sh:
+        return None
+    
+    ws = None
+    try:
+        for worksheet in sh.worksheets():
+            if worksheet.id == sheet_id:
+                ws = worksheet
+                break
+        
+        if ws:
+            return pd.DataFrame(ws.get_all_records())
+        return pd.DataFrame()
+    except:
+        return pd.DataFrame()
+
+@st.cache_data(ttl=300)
+def get_cached_users():
+    """users 시트 캐싱"""
+    sh = connect_db()
+    ws = get_worksheet(sh, "users")
+    if ws:
+        return pd.DataFrame(ws.get_all_records())
+    return pd.DataFrame()
+
+@st.cache_data(ttl=300)
+def get_cached_attendance(year_suffix):
+    """attendance 시트 캐싱"""
+    sh = connect_db()
+    ws = get_worksheet(sh, f"attendance_{year_suffix}")
+    if ws:
+        return pd.DataFrame(ws.get_all_records())
+    return pd.DataFrame()
+
+@st.cache_data(ttl=300)
+def get_cached_classes(year_suffix):
+    """classes 시트 캐싱"""
+    sh = connect_db()
+    ws = get_worksheet(sh, f"classes_{year_suffix}")
+    if ws:
+        return pd.DataFrame(ws.get_all_records())
+    return pd.DataFrame()
+
+@st.cache_data(ttl=300)
+def get_cached_external(year_suffix):
+    """external 시트 캐싱"""
+    sh = connect_db()
+    ws = get_worksheet(sh, f"external_{year_suffix}")
+    if ws:
+        return pd.DataFrame(ws.get_all_records())
+    return pd.DataFrame()
+
+@st.cache_data(ttl=300)
+def get_cached_edu_categories():
+    """education_categories 시트 캐싱"""
+    sh = connect_db()
+    ws = get_worksheet(sh, "education_categories")
+    if ws:
+        return pd.DataFrame(ws.get_all_records())
+    return pd.DataFrame()
+# ========== 여기까지 추가 ==========
 
 # ✅ 로컬 이미지 Base64 인코딩 함수 (HTML 삽입용)
 def get_image_base64(path):
@@ -764,12 +830,10 @@ def main():
         st.markdown("---")
         
         # 2. 생일 알림 로직
-        ws_u = get_worksheet(sh, "users")
-        
-        if ws_u:
+        df_u = get_cached_users()
+    
+        if not df_u.empty:
             try:
-                df_u = pd.DataFrame(ws_u.get_all_records())
-                
                 # 날짜 처리 준비
                 today = date.today()
                 today_birthdays = []    # (이름, 날짜)
@@ -904,18 +968,14 @@ def main():
     # 1. 이용자 조회
     # =========================================================================
     elif menu == "이용자 조회":
-        ws_u = get_worksheet(sh, "users")
-        ws_a = get_worksheet(sh, sheet_att) 
-        ws_c = get_worksheet(sh, sheet_cls)
-        get_worksheet(sh, sheet_ext)
-        
-        if ws_u is None or ws_a is None or ws_c is None:
+        df_u = get_cached_users()
+        df_a = get_cached_attendance(yy)
+        df_c = get_cached_classes(yy)
+    
+        if df_u.empty or df_a.empty or df_c.empty:
             finish_loading()
+            st.warning("데이터를 불러올 수 없습니다.")
             st.stop()
-            
-        df_u = pd.DataFrame(ws_u.get_all_records())
-        df_a = pd.DataFrame(ws_a.get_all_records())
-        df_c = pd.DataFrame(ws_c.get_all_records())
         
         st.title("🔍 이용자 조회")
         
@@ -1069,23 +1129,13 @@ def main():
     # =========================================================================
     elif menu == "수업 조회":
         # 1. 필요한 모든 시트 로드
-        ws_u = get_worksheet(sh, "users")
-        ws_a = get_worksheet(sh, sheet_att)
-        ws_c = get_worksheet(sh, sheet_cls)
-        ws_edu = get_worksheet(sh, "education_categories")
-        ws_ext = get_worksheet(sh, sheet_ext)
-
-        if None in [ws_u, ws_a, ws_c, ws_edu, ws_ext]:
-            finish_loading()
-            st.error("데이터 시트 로드 중 일부 실패")
-            st.stop()
-
-        # 2. 데이터프레임 변환
-        df_u = pd.DataFrame(ws_u.get_all_records()).astype(str)
-        df_a = pd.DataFrame(ws_a.get_all_records()).astype(str)
-        df_c = pd.DataFrame(ws_c.get_all_records()).astype(str)
-        df_edu = pd.DataFrame(ws_edu.get_all_records()).astype(str)
-        df_ext = pd.DataFrame(ws_ext.get_all_records()).astype(str)
+        df_u = get_cached_users().astype(str)
+        df_a = get_cached_attendance(yy).astype(str)
+        df_c = get_cached_classes(yy).astype(str)
+        df_edu = get_cached_edu_categories().astype(str)
+        df_ext = get_cached_external(yy).astype(str)
+    
+        finish_loading()
 
         # [추가] 초록색 카드 디자인 함수
         def style_metric_card(label, value):
@@ -1570,23 +1620,17 @@ def main():
     # 3. 운영 현황 (대대적 개편: 세부 통계, 누적 비교, 그래프 시각화)
     # =========================================================================
     elif menu == "운영 현황":
-        ws_u = get_worksheet(sh, "users")
-        ws_c = get_worksheet(sh, sheet_cls)
-        ws_a = get_worksheet(sh, sheet_att)
-        ws_ext = get_worksheet(sh, sheet_ext)
-        ws_edu = get_worksheet(sh, "education_categories")
-
-        if ws_u and ws_c and ws_a and ws_ext:
-            st.title("📊 운영 현황")
-            
-            # 데이터 로드
-            df_u = pd.DataFrame(ws_u.get_all_records())
-            df_c = pd.DataFrame(ws_c.get_all_records())
-            df_a = pd.DataFrame(ws_a.get_all_records())
-            df_ext = pd.DataFrame(ws_ext.get_all_records())
-            df_edu = pd.DataFrame(ws_edu.get_all_records())
-
-            finish_loading()
+        st.title("📊 운영 현황")
+    
+        df_u = get_cached_users()
+        df_c = get_cached_classes(yy)
+        df_a = get_cached_attendance(yy)
+        df_ext = get_cached_external(yy)
+        df_edu = get_cached_edu_categories()
+    
+        finish_loading()
+    
+        if not df_u.empty and not df_c.empty and not df_a.empty:
 
             if not df_a.empty and not df_c.empty and not df_u.empty:
                 # 데이터 타입 통일
