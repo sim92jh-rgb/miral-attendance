@@ -347,6 +347,45 @@ st.markdown(f"""
         display: none !important;
     }}
 
+    /* "Created by" 텍스트가 포함된 모든 요소 숨김 */
+    [class*="viewerBadge"] {{
+        display: none !important;
+        visibility: hidden !important;
+        opacity: 0 !important;
+        height: 0 !important;
+        width: 0 !important;
+    }}
+    
+    /* Streamlit 배지 전체 영역 숨김 */
+    div[class*="styles_viewerBadge"] {{
+        display: none !important;
+    }}
+    
+    /* iframe 내부의 배지 숨김 */
+    iframe[title*="streamlit"] {{
+        display: none !important;
+    }}
+    
+    /* footer 영역 안의 모든 하위 요소 숨김 */
+    footer * {{
+        display: none !important;
+    }}
+    
+    /* 우측 하단 고정 요소 전체 제거 */
+    [data-testid="stBottom"] {{
+        display: none !important;
+    }}
+    
+    /* GitHub 아바타 이미지 직접 타겟 */
+    img[alt="App Creator Avatar"] {{
+        display: none !important;
+    }}
+    
+    /* "Hosted with Streamlit" 버튼 */
+    a[href*="streamlit.io"] {{
+        display: none !important;
+    }}
+
     /* 버전 텍스트 스타일 */
     .version-text {{
         color: #FFFFFF !important;
@@ -441,6 +480,39 @@ st.markdown(f"""
     }}
     
 </style>
+""", unsafe_allow_html=True)
+
+st.markdown("""
+<script>
+    // 페이지 로드 후 0.5초마다 배지 요소 제거 (3초간)
+    let attempts = 0;
+    const maxAttempts = 6;
+    
+    const removeBadge = setInterval(function() {
+        attempts++;
+        
+        // 클래스명에 'viewerBadge' 포함된 모든 요소 제거
+        document.querySelectorAll('[class*="viewerBadge"]').forEach(el => el.remove());
+        
+        // 'Created by' 텍스트 포함된 요소 제거
+        document.querySelectorAll('*').forEach(el => {
+            if (el.textContent && el.textContent.includes('Created by')) {
+                el.remove();
+            }
+        });
+        
+        // 'Hosted with' 텍스트 포함된 요소 제거
+        document.querySelectorAll('*').forEach(el => {
+            if (el.textContent && el.textContent.includes('Hosted with')) {
+                el.remove();
+            }
+        });
+        
+        if (attempts >= maxAttempts) {
+            clearInterval(removeBadge);
+        }
+    }, 500);
+</script>
 """, unsafe_allow_html=True)
 
 # -----------------------------------------------------------------------------
