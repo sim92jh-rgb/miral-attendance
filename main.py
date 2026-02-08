@@ -572,7 +572,7 @@ def get_worksheet(sh, name):
     except Exception as e:
         st.toast(f"⚠️ 구글 시트({name}) 로딩 지연: 잠시 후 다시 시도됩니다.", icon="⏳")
         return None
-========== 여기부터 추가 ==========
+
 @st.cache_data(ttl=300)  # 5분간 캐싱
 def load_sheet_data(sheet_id):
     """구글 시트 데이터를 캐싱하여 로드"""
