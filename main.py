@@ -11,39 +11,21 @@ import random
 import base64
 import streamlit.components.v1 as components 
 
+# [추가됨] 자바스크립트로 강제 포커스 해제(키보드 닫기)
 def close_keyboard_focus():
-    """
-    드롭박스를 확실하게 닫기 위해
-    1. 현재 포커스 해제 (blur)
-    2. ESC 키 이벤트 전송
-    3. 화면 빈 공간 클릭 시뮬레이션
-    이 3가지를 동시에 수행합니다.
-    """
     components.html(
         """
         <script>
             var doc = window.parent.document;
-            
-            // Streamlit이 화면을 다 그린 뒤 실행되도록 300ms 대기
             setTimeout(function() {
                 var active = doc.activeElement;
-                
                 if (active) {
-                    // 1. 포커스 해제 시도
-                    active.blur();
-                    
-                    // 2. ESC 키 누름 효과 (드롭박스 닫기 명령)
-                    var escEvent = new KeyboardEvent('keydown', {
-                        key: 'Escape',
-                        code: 'Escape',
-                        keyCode: 27,
-                        bubbles: true,
-                        cancelable: true
-                    });
+                    active.blur();  // 1. 포커스 해제
+                    // 2. ESC 키 입력 효과
+                    var escEvent = new KeyboardEvent('keydown', {key: 'Escape', code: 'Escape', keyCode: 27, bubbles: true, cancelable: true});
                     active.dispatchEvent(escEvent);
                 }
-                
-                // 3. 최후의 수단: 화면의 최상위 body를 강제로 클릭하여 열린 메뉴 닫기
+                // 3. 화면 클릭 효과
                 doc.body.dispatchEvent(new MouseEvent('mousedown', {bubbles: true}));
                 doc.body.click();
             }, 300);
@@ -1356,142 +1338,68 @@ def main():
             else:
                 st.warning("등록된 수업이 없습니다.")  
 
-    # =========================================================================
-        # 2. 출석 등록 (이용자 선택 시 자동 닫힘 제거, 연속 선택 가능)
+        # =========================================================================
+        # 2. 출석 등록 (기능 개선: 이용자 검색 강화 + 외부수업 분기 처리)
         # =========================================================================
         elif menu == "출석 등록":
-            # [초기 설정] Session State
-            # 수업 선택용 키는 유지 (하나 고르면 딱 닫히는 게 깔끔하므로)
-            if "att_cls_key" not in st.session_state:
-                st.session_state.att_cls_key = 0
-            if "att_cls_val" not in st.session_state:
-                st.session_state.att_cls_val = []
-                
-            # [수정] 이용자 선택용 키/값 저장소는 제거함 (일반적인 멀티셀렉트로 복귀)
-
-            # [CSS] 드롭박스 높이 제한 & 태그 색상
-            st.markdown(
-                """
-                <style>
-                ul[data-testid="stSelectboxVirtualDropdown"],
-                ul[data-testid="stMultiSelectVirtualDropdown"] {
-                    max-height: 150px !important;
-                }
-                span[data-baseweb="tag"] {
-                    background-color: var(--primary-color) !important;
-                    color: black !important;
-                }
-                </style>
-                """,
-                unsafe_allow_html=True
-            )
-
-            # 데이터 로드
             ws_u = get_worksheet(sh, "users")
-            ws_c = get_worksheet(sh, sheet_cls)
-            ws_edu = get_worksheet(sh, "education_categories") 
-            ws_a = get_worksheet(sh, sheet_att)
-            ws_ext = get_worksheet(sh, sheet_ext)
+            ws_c = get_worksheet(sh, "classes")
+            ws_edu = get_worksheet(sh, "education_categories") # 수업 유형 확인용
+            ws_a = get_worksheet(sh, "attendance")
+            ws_ext = get_worksheet(sh, "external") # 외부수업 저장용
 
             if None in [ws_u, ws_c, ws_edu, ws_a, ws_ext]:
                 finish_loading()
-                st.error("구글 시트 로드 실패.")
+                st.error("구글 시트 로드 실패. 잠시 후 다시 시도해주세요.")
                 st.stop()
                 
             st.title("✅ 출석등록")
             
+            # 데이터 로드
             df_u = pd.DataFrame(ws_u.get_all_records()).astype(str)
             df_c = pd.DataFrame(ws_c.get_all_records()).astype(str)
             df_edu = pd.DataFrame(ws_edu.get_all_records()).astype(str)
 
             finish_loading()
-
-            # ---------------------------------------------------------------------
-            # [UI Fragment] 입력창 부분만 따로 렌더링
-            # ---------------------------------------------------------------------
             
-            def render_attendance_ui():
-                if df_u.empty or df_c.empty:
-                    st.warning("이용자와 수업을 먼저 등록하세요.")
-                    return
-
+            if not df_u.empty and not df_c.empty:
                 # -----------------------------------------------------------------
-                # [A] 수업 선택 (단일 선택이므로 자동 닫힘 유지)
+                # [A] 수업 및 강사 선택 로직
                 # -----------------------------------------------------------------
-                current_cls = st.multiselect(
-                    "1. 수업명", 
-                    options=df_c['class_name'].unique(),
-                    placeholder="수업명을 입력하거나 선택하세요",
-                    key=f"cls_w_{st.session_state.att_cls_key}", 
-                    default=st.session_state.att_cls_val
-                )
-
-                # 수업은 1개만 선택하면 자동으로 닫히게 처리 (깔끔함 유지)
-                if len(current_cls) > 1:
-                    st.session_state.att_cls_val = [current_cls[-1]]
-                    st.session_state.att_cls_key += 1
-                    st.rerun()
-                elif len(current_cls) == 1 and current_cls != st.session_state.att_cls_val:
-                    st.session_state.att_cls_val = current_cls
-                    st.session_state.att_cls_key += 1
-                    st.rerun()
-
-                if not st.session_state.att_cls_val:
-                    st.info("👆 수업을 먼저 선택해주세요.")
-                    return 
-
-                sel_class_name = st.session_state.att_cls_val[0]
+                # 1. 수업명 선택
+                sel_class_name = st.selectbox("1. 수업 선택", df_c['class_name'].unique())
                 
-                # 2. 강사명 선택
+                # 2. 강사명 선택 (해당 수업에 등록된 강사만 필터링)
                 filtered_classes = df_c[df_c['class_name'] == sel_class_name]
                 instructor_list = filtered_classes['instructor_name'].unique()
-                sel_instructor = st.selectbox("2. 강사명", instructor_list)
+                sel_instructor = st.selectbox("2. 강사 선택", instructor_list)
                 
-                # 상세 정보
+                # 선택된 수업의 상세 정보 가져오기 (ID, 교육구분 등)
                 target_class_row = filtered_classes[filtered_classes['instructor_name'] == sel_instructor].iloc[0]
                 real_class_id = target_class_row['class_id']
                 edu_cat_name = target_class_row['education_category']
                 
-                # 3. 수업 유형 판별
-                class_type = "내부수업"
+                # 3. 수업 유형(내부/외부) 판별
+                class_type = "내부수업" # 기본값
                 if not df_edu.empty:
+                    # 교육구분명으로 매칭하여 유형 찾기
                     edu_match = df_edu[df_edu['category_name'] == edu_cat_name]
                     if not edu_match.empty:
                         class_type = edu_match.iloc[0]['class_type']
 
+                # 유형 표시 배지
                 if class_type == "외부수업":                
-                    st.markdown(f"<div style='margin-left: 50px; margin-top: -180px;'><span style='background-color:#FFF3E0; color:#EF6C00; padding:4px 8px; border-radius:4px; font-size:0.8em; font-weight:bold;'>🚩 외부수업 </span></div>", unsafe_allow_html=True)
+                    st.markdown(f"<div style='margin-left: 70px; margin-top: -180px;'><span style='background-color:#FFF3E0; color:#EF6C00; padding:4px 8px; border-radius:4px; font-size:0.8em; font-weight:bold;'>🚩 외부수업 </span></div>", unsafe_allow_html=True)
                 else:
-                    st.markdown(f"<div style='margin-left: 50px; margin-top: -180px;'><span style='background-color:#E8F5E9; color:#2E7D32; padding:4px 8px; border-radius:4px; font-size:0.8em; font-weight:bold;'>🏠 내부수업 </span></div>", unsafe_allow_html=True)
+                    st.markdown(f"<div style='margin-left: 70px; margin-top: -180px;'><span style='background-color:#E8F5E9; color:#2E7D32; padding:4px 8px; border-radius:4px; font-size:0.8em; font-weight:bold;'>🏠 내부수업 </span></div>", unsafe_allow_html=True)
 
                 # -----------------------------------------------------------------
-                # [B] 상세 입력
-                # -----------------------------------------------------------------
-                
-                sel_users = []
-                ext_member_cnt = 0
-                ext_total_cnt = 0
-                
-                if class_type == "내부수업":
-                    
-                    user_opts = [f"{r['name']} ({str(r['user_id'])})" for i, r in df_u.iterrows()]
-                    
-                    # [수정] 일반적인 Multiselect로 변경 (자동 닫힘 제거)
-                    # 이제 선택해도 드롭박스가 닫히지 않고 연속 선택이 가능합니다.
-                    sel_users = st.multiselect(
-                        "이용자명", 
-                        options=user_opts,
-                        placeholder="예: 홍길동",
-                        key="attendance_user_select" # 고정 키 사용
-                    )
-                    
-                    st.markdown("---")
-
-                # -----------------------------------------------------------------
-                # [C] 폼 입력
+                # [B] 입력 폼 (유형에 따라 다름)
                 # -----------------------------------------------------------------
                 with st.form("attendance_form"):
-                    st.write("📝 날짜 및 시간 입력")
+                    st.write("📝 출석 상세정보 입력")
+                    
+                    # 공통 입력 사항 (날짜, 시간)
                     col_d1, col_d2, col_d3 = st.columns(3)
                     
                     now_date_str = datetime.now().strftime("%y%m%d")
@@ -1502,33 +1410,43 @@ def main():
                     input_start_time = col_d2.text_input("시작 시간 (HH:MM)", value="", placeholder=f"예: {now_time_start}")
                     input_end_time = col_d3.text_input("종료 시간 (HH:MM)", value="", placeholder=f"예: {now_time_end}")
 
+                    st.markdown("<br>", unsafe_allow_html=True)
+
+                    # [분기] 내부수업 vs 외부수업
+                    sel_users = []
+                    ext_member_cnt = 0
+                    ext_total_cnt = 0
+
                     if class_type == "외부수업":
-                        st.markdown("<br>", unsafe_allow_html=True)
+                        # [외부수업 UI] 숫자 입력창 2개
                         c_ext1, c_ext2 = st.columns(2)
                         ext_member_cnt = c_ext1.number_input("외부 실인원 (명)", min_value=0, step=1)
                         ext_total_cnt = c_ext2.number_input("외부 연인원 (명)", min_value=0, step=1)
+                    
+                    else:
+                        # [내부수업 UI] 이용자 검색 및 다중 선택
+                        # 검색 편의성을 위해 '이름 (ID뒷자리)' 형식으로 리스트 생성
+                        # multiselect는 텍스트 입력 시 자동으로 필터링(검색) 기능을 제공합니다.
+                        user_opts = [f"{r['name']} ({str(r['user_id'])})" for i, r in df_u.iterrows()]
+                                            
+                        sel_users = st.multiselect(
+                            "참여 이용자 선택", 
+                            options=user_opts,
+                            placeholder="예: 홍길동"
+                        )
 
-                    st.markdown("<br>", unsafe_allow_html=True)
+                    st.markdown("---")
                     submitted = st.form_submit_button("등록하기", type="primary", use_container_width=True)
 
+                    # -------------------------------------------------------------
+                    # [C] 저장 로직
+                    # -------------------------------------------------------------
                     if submitted:
-                        # 1. [검증] 시간 입력값이 비어있는지 먼저 확인 (수정됨)
-                        # 하나라도 비어있으면 경고를 띄우고 함수를 종료(return)해서 밑으로 못 가게 막습니다.
-                        if not input_start_time or not input_end_time:
-                            st.warning("⚠️ 출석 시간을 입력해주세요.")
-                            return 
-                        
-                        # 2. 날짜/시간 포맷팅
-                        # 날짜: 입력이 없으면 오늘 날짜(now_date_str)를 그대로 씁니다 (이건 유지)
+                        # 1. 날짜/시간 포맷팅
                         final_date = format_date_short_input(input_date) if input_date else now_date_str
+                        final_start = format_time_input(input_start_time) if input_start_time else now_time_start
+                        final_end = format_time_input(input_end_time) if input_end_time else now_time_end
                         
-                        # [수정된 부분] 시간: 위에서 입력 여부를 확인했으니, 'else' 없이 바로 변환합니다.
-                        final_start = format_time_input(input_start_time)
-                        final_end = format_time_input(input_end_time)
-                        
-                        # ---------------------------------------------------------
-                        # 아래부터는 기존 저장 로직과 동일
-                        # ---------------------------------------------------------
                         save_date_str = ""
                         try:
                             date_nums = "".join(filter(str.isdigit, final_date))
@@ -1536,19 +1454,21 @@ def main():
                                 save_date_str = datetime.strptime(date_nums, "%y%m%d").strftime("%Y-%m-%d")
                             else:
                                 st.error(f"날짜 형식이 올바르지 않습니다. ({final_date})")
-                                return
+                                st.stop()
                         except ValueError:
                             st.error("날짜 형식이 올바르지 않습니다.")
-                            return
+                            st.stop()
                         
                         save_time_str = f"{final_start} ~ {final_end}"
 
-                        # 저장 실행 (외부/내부 분기)
+                        # 2. 저장 실행 (분기)
                         if class_type == "외부수업":
+                            # [외부수업 저장] -> external 시트
                             if ext_member_cnt == 0 and ext_total_cnt == 0:
                                 st.warning("인원수를 입력해주세요.")
                             else:
                                 new_ext_id = f"EXT{int(time.time())}"
+                                # 순서: ext_id, class_id, date, time, member, count
                                 ws_ext.append_row([
                                     new_ext_id, real_class_id, save_date_str, save_time_str, 
                                     int(ext_member_cnt), int(ext_total_cnt)
@@ -1558,33 +1478,32 @@ def main():
                                 st.rerun()
                                 
                         else:
+                            # [내부수업 저장] -> attendance 시트
                             if not sel_users:
                                 st.error("참여자를 최소 1명 이상 선택해주세요.")
                             else:
                                 rows = []
                                 for u_str in sel_users:
+                                    # "홍길동 (20000101)" 형태에서 ID 추출
+                                    # 뒤에서부터 ')' 제거하고 '(' 찾아서 그 사이 값 추출
                                     try:
                                         target_uid = u_str.split('(')[-1].replace(')', '')
                                     except:
                                         target_uid = ""
                                     
                                     if target_uid:
+                                        # 순서: att_id, user_id, class_id, date, time
                                         rows.append([f"A{int(time.time())}_{random.randint(100,999)}", target_uid, real_class_id, save_date_str, save_time_str])
                                 
                                 if rows:
                                     ws_a.append_rows(rows)
-                                    # 저장 성공 시 선택 값 초기화
-                                    st.session_state.att_cls_val = [] 
-                                    st.session_state.att_cls_key += 1
-                                    
                                     st.toast(f"🏠 내부수업 {len(rows)}명 등록 완료!", icon="✅")
                                     time.sleep(1)
                                     st.rerun()
                                 else:
                                     st.error("이용자 ID를 찾을 수 없습니다.")
-
-            # [실행]
-            render_attendance_ui()
+            else:
+                st.warning("이용자와 수업을 먼저 등록하세요.")
 
         # =========================================================================
         # 3. 운영 현황 (대대적 개편: 세부 통계, 누적 비교, 그래프 시각화)
