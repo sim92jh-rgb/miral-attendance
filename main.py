@@ -1356,18 +1356,15 @@ def main():
             else:
                 st.warning("등록된 수업이 없습니다.")  
 
-    # =========================================================================
-        # 2. 출석 등록 (이용자 선택 시 자동 닫힘 제거, 연속 선택 가능)
+        # =========================================================================
+        # 2. 출석 등록 (수정됨: 이용자 선택을 form 안으로 이동)
         # =========================================================================
         elif menu == "출석 등록":
             # [초기 설정] Session State
-            # 수업 선택용 키는 유지 (하나 고르면 딱 닫히는 게 깔끔하므로)
             if "att_cls_key" not in st.session_state:
                 st.session_state.att_cls_key = 0
             if "att_cls_val" not in st.session_state:
                 st.session_state.att_cls_val = []
-                
-            # [수정] 이용자 선택용 키/값 저장소는 제거함 (일반적인 멀티셀렉트로 복귀)
 
             # [CSS] 드롭박스 높이 제한 & 태그 색상
             st.markdown(
@@ -1416,7 +1413,7 @@ def main():
                     return
 
                 # -----------------------------------------------------------------
-                # [A] 수업 선택 (단일 선택이므로 자동 닫힘 유지)
+                # [A] 수업 선택 (단일 선택이므로 자동 닫힘 유지) - FORM 외부 유지 (리로드 필요)
                 # -----------------------------------------------------------------
                 current_cls = st.multiselect(
                     "1. 수업명", 
@@ -1459,39 +1456,34 @@ def main():
                     if not edu_match.empty:
                         class_type = edu_match.iloc[0]['class_type']
 
-                if class_type == "외부수업":                
+                if class_type == "외부수업":                 
                     st.markdown(f"<div style='margin-left: 50px; margin-top: -180px;'><span style='background-color:#FFF3E0; color:#EF6C00; padding:4px 8px; border-radius:4px; font-size:0.8em; font-weight:bold;'>🚩 외부수업 </span></div>", unsafe_allow_html=True)
                 else:
                     st.markdown(f"<div style='margin-left: 50px; margin-top: -180px;'><span style='background-color:#E8F5E9; color:#2E7D32; padding:4px 8px; border-radius:4px; font-size:0.8em; font-weight:bold;'>🏠 내부수업 </span></div>", unsafe_allow_html=True)
-
-                # -----------------------------------------------------------------
-                # [B] 상세 입력
-                # -----------------------------------------------------------------
                 
-                sel_users = []
-                ext_member_cnt = 0
-                ext_total_cnt = 0
-                
-                if class_type == "내부수업":
-                    
-                    user_opts = [f"{r['name']} ({str(r['user_id'])})" for i, r in df_u.iterrows()]
-                    
-                    # [수정] 일반적인 Multiselect로 변경 (자동 닫힘 제거)
-                    # 이제 선택해도 드롭박스가 닫히지 않고 연속 선택이 가능합니다.
-                    sel_users = st.multiselect(
-                        "이용자명", 
-                        options=user_opts,
-                        placeholder="예: 홍길동",
-                        key="attendance_user_select" # 고정 키 사용
-                    )
-                    
-                    st.markdown("---")
-
                 # -----------------------------------------------------------------
-                # [C] 폼 입력
+                # [B] 폼 입력 (이용자 선택 + 날짜/시간 + 버튼 통합)
                 # -----------------------------------------------------------------
+                # ⭐ 여기서부터 st.form 시작 (이용자 선택도 포함시킴)
                 with st.form("attendance_form"):
-                    st.write("📝 날짜 및 시간 입력")
+                    
+                    sel_users = []          # 변수 초기화
+                    ext_member_cnt = 0
+                    ext_total_cnt = 0
+
+                    # === [내부수업일 때: 이용자 선택창] ===
+                    if class_type == "내부수업":
+                        
+                        user_opts = [f"{r['name']} ({str(r['user_id'])})" for i, r in df_u.iterrows()]
+                        
+                        # ⭐ st.multiselect가 form 안에 있으므로 선택해도 새로고침 되지 않음
+                        sel_users = st.multiselect(
+                            "이용자명 (복수 선택 가능)", 
+                            options=user_opts,
+                            placeholder="예: 홍길동",
+                            key="attendance_user_select"
+                        )
+                    
                     col_d1, col_d2, col_d3 = st.columns(3)
                     
                     now_date_str = datetime.now().strftime("%y%m%d")
@@ -1502,6 +1494,7 @@ def main():
                     input_start_time = col_d2.text_input("시작 시간 (HH:MM)", value="", placeholder=f"예: {now_time_start}")
                     input_end_time = col_d3.text_input("종료 시간 (HH:MM)", value="", placeholder=f"예: {now_time_end}")
 
+                    # === [외부수업일 때: 인원수 입력] ===
                     if class_type == "외부수업":
                         st.markdown("<br>", unsafe_allow_html=True)
                         c_ext1, c_ext2 = st.columns(2)
@@ -1509,26 +1502,21 @@ def main():
                         ext_total_cnt = c_ext2.number_input("외부 연인원 (명)", min_value=0, step=1)
 
                     st.markdown("<br>", unsafe_allow_html=True)
+                    
+                    # === [등록 버튼] ===
                     submitted = st.form_submit_button("등록하기", type="primary", use_container_width=True)
 
                     if submitted:
-                        # 1. [검증] 시간 입력값이 비어있는지 먼저 확인 (수정됨)
-                        # 하나라도 비어있으면 경고를 띄우고 함수를 종료(return)해서 밑으로 못 가게 막습니다.
+                        # 1. 시간 입력 검증
                         if not input_start_time or not input_end_time:
                             st.warning("⚠️ 출석 시간을 입력해주세요.")
                             return 
                         
                         # 2. 날짜/시간 포맷팅
-                        # 날짜: 입력이 없으면 오늘 날짜(now_date_str)를 그대로 씁니다 (이건 유지)
                         final_date = format_date_short_input(input_date) if input_date else now_date_str
-                        
-                        # [수정된 부분] 시간: 위에서 입력 여부를 확인했으니, 'else' 없이 바로 변환합니다.
                         final_start = format_time_input(input_start_time)
                         final_end = format_time_input(input_end_time)
                         
-                        # ---------------------------------------------------------
-                        # 아래부터는 기존 저장 로직과 동일
-                        # ---------------------------------------------------------
                         save_date_str = ""
                         try:
                             date_nums = "".join(filter(str.isdigit, final_date))
@@ -1543,7 +1531,7 @@ def main():
                         
                         save_time_str = f"{final_start} ~ {final_end}"
 
-                        # 저장 실행 (외부/내부 분기)
+                        # 3. 저장 실행 (분기 처리)
                         if class_type == "외부수업":
                             if ext_member_cnt == 0 and ext_total_cnt == 0:
                                 st.warning("인원수를 입력해주세요.")
@@ -1557,7 +1545,7 @@ def main():
                                 time.sleep(1)
                                 st.rerun()
                                 
-                        else:
+                        else: # 내부수업
                             if not sel_users:
                                 st.error("참여자를 최소 1명 이상 선택해주세요.")
                             else:
@@ -1573,7 +1561,7 @@ def main():
                                 
                                 if rows:
                                     ws_a.append_rows(rows)
-                                    # 저장 성공 시 선택 값 초기화
+                                    # 저장 성공 시 선택 값 초기화 (Session State로 관리하는 Class 키만 변경해서 폼 리셋 유도)
                                     st.session_state.att_cls_val = [] 
                                     st.session_state.att_cls_key += 1
                                     
