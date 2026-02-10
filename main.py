@@ -528,7 +528,7 @@ def get_worksheet(sh, name):
                 ws.append_row(["category_id", "business_category", "category_name", "class_type"])
             
             elif "attendance" in name:
-                ws.append_row(["attendance_id", "user_id", "class_id", "attendance_date", "attendance_time"])
+                ws.append_row(["attendance_id", "user_id", "class_id", "attendance_date", "attendance_time", "detail"])
             
             # [추가하신 부분] external 시트 헤더 정의
             elif "external" in name:
@@ -752,7 +752,7 @@ def main():
             """
             <div style='text-align: center; margin-top:-89px;'>
                 <p class='version-text'>
-                    ver.26.02-1
+                    ver.26.02-2
                 </p>
             </div>
             """, 
@@ -1408,6 +1408,10 @@ def main():
             # ---------------------------------------------------------------------
             
             def render_attendance_ui():
+                if "success_msg" in st.session_state:
+                    st.toast(st.session_state["success_msg"], icon="✅")
+                    del st.session_state["success_msg"]  # 메시지 한 번 보여줬으면 삭제 (안 그러면 계속 뜸)
+                
                 if df_u.empty or df_c.empty:
                     st.warning("이용자와 수업을 먼저 등록하세요.")
                     return
@@ -1415,29 +1419,7 @@ def main():
                 # -----------------------------------------------------------------
                 # [A] 수업 선택 (단일 선택이므로 자동 닫힘 유지) - FORM 외부 유지 (리로드 필요)
                 # -----------------------------------------------------------------
-                current_cls = st.multiselect(
-                    "1. 수업명", 
-                    options=df_c['class_name'].unique(),
-                    placeholder="수업명을 입력하거나 선택하세요",
-                    key=f"cls_w_{st.session_state.att_cls_key}", 
-                    default=st.session_state.att_cls_val
-                )
-
-                # 수업은 1개만 선택하면 자동으로 닫히게 처리 (깔끔함 유지)
-                if len(current_cls) > 1:
-                    st.session_state.att_cls_val = [current_cls[-1]]
-                    st.session_state.att_cls_key += 1
-                    st.rerun()
-                elif len(current_cls) == 1 and current_cls != st.session_state.att_cls_val:
-                    st.session_state.att_cls_val = current_cls
-                    st.session_state.att_cls_key += 1
-                    st.rerun()
-
-                if not st.session_state.att_cls_val:
-                    st.info("👆 수업을 먼저 선택해주세요.")
-                    return 
-
-                sel_class_name = st.session_state.att_cls_val[0]
+                sel_class_name = st.selectbox("1. 수업명", df_c['class_name'].unique())
                 
                 # 2. 강사명 선택
                 filtered_classes = df_c[df_c['class_name'] == sel_class_name]
@@ -1481,7 +1463,7 @@ def main():
                             "이용자명 (복수 선택 가능)", 
                             options=user_opts,
                             placeholder="예: 홍길동",
-                            key="attendance_user_select"
+                            key=f"attendance_user_select_{st.session_state.att_cls_key}"
                         )
                     
                     col_d1, col_d2, col_d3 = st.columns(3)
@@ -1490,16 +1472,17 @@ def main():
                     now_time_start = "10:00"
                     now_time_end = "12:00"
                     
-                    input_date = col_d1.text_input("출석 일자 (YYMMDD)", value="", placeholder=f"예: {now_date_str}")
-                    input_start_time = col_d2.text_input("시작 시간 (HH:MM)", value="", placeholder=f"예: {now_time_start}")
-                    input_end_time = col_d3.text_input("종료 시간 (HH:MM)", value="", placeholder=f"예: {now_time_end}")
+                    input_date = col_d1.text_input("출석 일자 (YYMMDD)", value="", placeholder=f"예: {now_date_str}", key=f"att_date_{st.session_state.att_cls_key}")
+                    input_start_time = col_d2.text_input("시작 시간 (HH:MM)", value="", placeholder=f"예: {now_time_start}", key=f"att_start_{st.session_state.att_cls_key}")
+                    input_end_time = col_d3.text_input("종료 시간 (HH:MM)", value="", placeholder=f"예: {now_time_end}", key=f"att_end_{st.session_state.att_cls_key}")
+                    input_detail = st.text_input("내용", placeholder="수업 내용이나 특이사항을 입력하세요", key=f"att_detail_{st.session_state.att_cls_key}")
 
                     # === [외부수업일 때: 인원수 입력] ===
                     if class_type == "외부수업":
                         st.markdown("<br>", unsafe_allow_html=True)
                         c_ext1, c_ext2 = st.columns(2)
-                        ext_member_cnt = c_ext1.number_input("외부 실인원 (명)", min_value=0, step=1)
-                        ext_total_cnt = c_ext2.number_input("외부 연인원 (명)", min_value=0, step=1)
+                        ext_member_cnt = c_ext1.number_input("외부 실인원 (명)", min_value=0, step=1, key=f"ext_mem_{st.session_state.att_cls_key}")
+                        ext_total_cnt = c_ext2.number_input("외부 연인원 (명)", min_value=0, step=1, key=f"ext_tot_{st.session_state.att_cls_key}")
 
                     st.markdown("<br>", unsafe_allow_html=True)
                     
@@ -1541,8 +1524,8 @@ def main():
                                     new_ext_id, real_class_id, save_date_str, save_time_str, 
                                     int(ext_member_cnt), int(ext_total_cnt)
                                 ])
-                                st.toast(f"🚩 외부수업 등록 완료! (실인원 {ext_member_cnt}명)", icon="✅")
-                                time.sleep(1)
+                                sst.session_state["success_msg"] = f"🚩 외부수업 등록 완료! (실인원 {ext_member_cnt}명)"
+                                st.session_state.att_cls_key += 1
                                 st.rerun()
                                 
                         else: # 내부수업
@@ -1557,7 +1540,7 @@ def main():
                                         target_uid = ""
                                     
                                     if target_uid:
-                                        rows.append([f"A{int(time.time())}_{random.randint(100,999)}", target_uid, real_class_id, save_date_str, save_time_str])
+                                        rows.append([f"A{int(time.time())}_{random.randint(100,999)}", target_uid, real_class_id, save_date_str, save_time_str, input_detail])
                                 
                                 if rows:
                                     ws_a.append_rows(rows)
@@ -1565,8 +1548,8 @@ def main():
                                     st.session_state.att_cls_val = [] 
                                     st.session_state.att_cls_key += 1
                                     
-                                    st.toast(f"🏠 내부수업 {len(rows)}명 등록 완료!", icon="✅")
-                                    time.sleep(1)
+                                    st.session_state["success_msg"] = f"🏠 내부수업 {len(rows)}명 등록 완료!"
+                                    st.session_state.att_cls_key += 1
                                     st.rerun()
                                 else:
                                     st.error("이용자 ID를 찾을 수 없습니다.")
