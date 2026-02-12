@@ -717,7 +717,7 @@ def main():
             # 높이 균형을 맞추기 위한 설명 텍스트 및 여백 (5px 정도 더 내림)
             st.markdown("<div style='margin-bottom: 5px; margin-top: 15px; font-size: 0.9em; color: #555;'>별도의 비밀번호 없이 접속 가능합니다</div>", unsafe_allow_html=True)
             st.write("") # 인풋창 높이만큼의 여백 대용
-            st.markdown("<div style='height: 53px;'></div>", unsafe_allow_html=True)
+            st.markdown("<div style='height: 49px;'></div>", unsafe_allow_html=True)
             
             if st.button("접속하기", key="btn_ext_login", use_container_width=True):
                 st.session_state['role'] = 'external'
