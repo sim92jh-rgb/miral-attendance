@@ -668,6 +668,63 @@ def calculate_stat_metrics(df_target):
 # 3. 메인 로직
 # -----------------------------------------------------------------------------
 def main():
+    # -------------------------------------------------------------------------
+    # [0] 로그인 및 권한 설정
+    # -------------------------------------------------------------------------
+    if 'role' not in st.session_state:
+        st.session_state['role'] = None
+
+    if st.session_state['role'] is None:
+        st.markdown(
+            """
+            <style>
+                [data-testid="stSidebar"] {display: none;}
+            </style>
+            """,
+            unsafe_allow_html=True
+        )
+        
+        # 화면 수직 중앙 정렬 효과를 위한 여백
+        st.markdown("<br><br><br>", unsafe_allow_html=True)
+        st.markdown(f"<h1 style='text-align: center; color: {COLOR_PRIMARY};'>헬렌켈러센터 출석관리</h1>", unsafe_allow_html=True)
+        st.markdown("<p style='text-align: center; color: #666; margin-bottom: 30px;'>사용자 유형에 맞게 접속해주세요.</p>", unsafe_allow_html=True)
+        
+        # 좌우 컬럼 분할 (중앙 정렬을 위해 빈 컬럼 사용: 1 : 4 : 1 : 4 : 1 비율)
+        c_margin1, c_int, c_gap, c_ext, c_margin2 = st.columns([1, 4, 1, 4, 1])
+        
+        # [왼쪽] 내부직원 (관리자)
+        with c_int:
+            st.info("👨‍💼 **내부직원 (관리자)**")
+            # 엔터키 입력을 지원하기 위해 st.form 사용
+            with st.form("internal_login_form"):
+                st.markdown("<div style='margin-bottom: 15px; font-size: 0.9em; color: #555;'>비밀번호를 입력하세요</div>", unsafe_allow_html=True)
+                password = st.text_input("비밀번호", type="password", label_visibility="collapsed", placeholder="예: 1234")
+                
+                # 버튼을 누르거나 인풋창에서 엔터를 치면 submit됨
+                btn_login = st.form_submit_button("접속하기", use_container_width=True, type="primary")
+                
+                if btn_login:
+                    if password == "0101":
+                        st.session_state['role'] = 'internal'
+                        st.rerun()
+                    else:
+                        st.error("비밀번호가 올바르지 않습니다.")
+
+        # [오른쪽] 외부직원 (강사)
+        with c_ext:
+            st.success("👩‍🏫 **외부직원 (강사)**")
+            
+            # 높이 균형을 맞추기 위한 설명 텍스트 및 여백 (5px 정도 더 내림)
+            st.markdown("<div style='margin-bottom: 5px; margin-top: 15px; font-size: 0.9em; color: #555;'>별도의 비밀번호 없이 접속 가능합니다</div>", unsafe_allow_html=True)
+            st.write("") # 인풋창 높이만큼의 여백 대용
+            st.markdown("<div style='height: 53px;'></div>", unsafe_allow_html=True)
+            
+            if st.button("접속하기", key="btn_ext_login", use_container_width=True):
+                st.session_state['role'] = 'external'
+                st.rerun()
+        
+        st.stop()
+
     sh = connect_db()
     if not sh:
         st.error("🚨 구글 시트 서버에 연결할 수 없습니다. (503 오류 등)")
@@ -719,7 +776,20 @@ def main():
         st.markdown("<div style='height: 20px;'></div>", unsafe_allow_html=True)
         
         # ✅ "메인" 추가 (로고 클릭 시 이 항목이 기본 선택됨)
-        menu_items = ["메인", "이용자 조회", "수업 조회", "출석 등록", "운영 현황", "이용자 관리", "수업 관리"]
+        # [권한별 메뉴 설정]
+        if st.session_state['role'] == 'external':
+            # 외부직원은 메뉴가 1개뿐이므로, "첫 번째 메뉴 숨김" CSS를 해제해야 함
+            st.markdown("""
+                <style>
+                .stRadio div[role='radiogroup'] > label:nth-child(1) {
+                    display: flex !important;
+                }
+                </style>
+            """, unsafe_allow_html=True)
+            menu_items = ["출석 등록"]
+        else:
+            menu_items = ["메인", "이용자 조회", "수업 조회", "출석 등록", "운영 현황", "이용자 관리", "수업 관리"]
+            
         menu = st.radio("메뉴", menu_items, label_visibility="collapsed")
         
         # =========================================================
@@ -729,6 +799,10 @@ def main():
         # 현재 연도 가져오기 (예: 2026)
         this_year = datetime.now().year
         
+        # [추가] 외부직원일 때 연도 박스를 아래로 밀기 위한 여백
+        if st.session_state['role'] == 'external':
+            st.markdown("<br>" * 13, unsafe_allow_html=True)
+            
         # 2025년부터 올해까지의 리스트 생성 (예: [2025, 2026])
         year_options = list(range(2025, this_year + 1))
         
