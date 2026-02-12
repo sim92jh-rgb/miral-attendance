@@ -950,146 +950,166 @@ def main():
             st.title("🔍 이용자 조회")
             
             if not df_u.empty:
-                search_name = st.text_input("조회할 이용자의 이름을 입력하고, 엔터를 눌러주세요", placeholder="예: 홍길동")
+                # [수정] 텍스트 입력 후 검색 -> Selectbox 바로 선택 (placeholder 사용)
+                user_opts = [f"{row['name']} ({str(row['user_id'])})" for i, row in df_u.iterrows()]
+                selected_user_str = st.selectbox("이용자를 선택하세요", user_opts, index=None, placeholder="이용자명을 입력하세요")
                 
                 finish_loading()
 
-                if search_name:
-                    found_users = df_u[df_u['name'].astype(str).str.contains(search_name)]
+                if selected_user_str:
+                    target_user_id = selected_user_str.split('(')[-1].replace(')', '')
+                            
+                    df_u['user_id'] = df_u['user_id'].astype(str)
+                    user_info = df_u[df_u['user_id'] == target_user_id].iloc[0]
                     
-                    if found_users.empty:
-                        st.warning("검색된 이용자가 없습니다.")
-                    else:
-                        user_opts = [f"{row['name']} ({str(row['user_id'])})" for i, row in found_users.iterrows()]
-                        selected_user_str = st.selectbox("이용자를 선택하세요", user_opts)
+                    st.markdown("---")
+                    st.markdown("### 👤 이용자 상세 정보")
+                    with st.container():
+                        st.markdown(f"<h2 style='margin-bottom: 5px; color:#2E7D32;'>{user_info['name']} 님</h2>", unsafe_allow_html=True)
                         
-                        if selected_user_str:
-                            target_user_id = selected_user_str.split('(')[-1].replace(')', '')
+                        def info_html(label, value):
+                            return f"""
+                            <div style='margin-bottom: 10px; background-color: #f5f5f5; padding: 10px; border-radius: 8px;'>
+                                <span style='color: grey; font-size: 0.9em;'>{label}</span>
+                                <br>
+                                <span style='color: black; font-size: 1.2em; font-weight: 500;'>{value if value else '-'}</span>
+                            </div>
+                            """
+
+                        fam_val = user_info.get('family', '')
+                        fam_txt = fam_val if fam_val else "해당없음"
+
+                        c1, c2, c3 = st.columns(3)
+                        c1.markdown(info_html("생년월일", user_info.get('birth_date', '-')), unsafe_allow_html=True)
+                        c2.markdown(info_html("성별", user_info.get('gender', '-')), unsafe_allow_html=True)
+                        c3.markdown(info_html("최초등록일", user_info.get('registration date', '-')), unsafe_allow_html=True)                            
+                                                                            
+                        c4, c5, c6 = st.columns(3)
+                        c4.markdown(info_html("연락처", user_info.get('phone', '-')), unsafe_allow_html=True)
+                        c5.markdown(info_html("보호자", user_info.get('family', '-')), unsafe_allow_html=True)
+                        c6.markdown(info_html("보호자 연락처", user_info.get('emergency_contact', '-')), unsafe_allow_html=True)                            
+                        
+                        
+                        c7 = st.columns(1)[0]
+                        c7.markdown(info_html("주소", user_info.get('address', '-')), unsafe_allow_html=True)
+                        
+
+                        flags = []
+                        if str(user_info.get('is_disabled')).upper() == "TRUE": flags.append("장애")
+                        if str(user_info.get('is_beneficiary')).upper() == "TRUE": flags.append("수급자")
+                        if str(user_info.get('is_seoul_resident')).upper() == "TRUE": flags.append("서울거주")
+                        if str(user_info.get('is_school_age')).upper() == "TRUE": flags.append("학령기")
+                        flag_str = ", ".join(flags) if flags else "특이사항 없음"
+                        
+                        st.markdown(f"""
+                        <div style='margin-bottom: 10px; background-color: #f5f5f5; padding: 10px; border-radius: 8px;'>
+                            <span style='color: grey; font-size: 0.9em;'>특이사항</span>
+                            <br>
+                            <span style='color: black; font-size: 1.2em; font-weight: 500;'>{flag_str}</span>
+                        </div>
+                        """, unsafe_allow_html=True)
+
+                    st.markdown("---")
+
+                    if not df_a.empty and not df_c.empty:
+                        df_a['user_id'] = df_a['user_id'].astype(str)
+                        user_attend = df_a[df_a['user_id'] == target_user_id].copy()
+                        
+                        if user_attend.empty:
+                            st.info("아직 출석 등록이 없습니다.")
+                        else:
+                            df_c['class_id'] = df_c['class_id'].astype(str)
+                            user_attend['class_id'] = user_attend['class_id'].astype(str)
+                            merged_df = user_attend.merge(df_c, on='class_id', how='left', suffixes=('', '_info'))
                             
-                            df_u['user_id'] = df_u['user_id'].astype(str)
-                            user_info = df_u[df_u['user_id'] == target_user_id].iloc[0]
+                            merged_df['attendance_date'] = pd.to_datetime(merged_df['attendance_date'])
+                            merged_df = merged_df.sort_values(by=['attendance_date', 'attendance_time'], ascending=True)
+
+                            st.subheader("📋 수강 이력 조회")
+                            fc1, fc2, fc3 = st.columns([1, 1, 2])
                             
-                            st.markdown("---")
-                            st.markdown("### 👤 이용자 상세 정보")
-                            with st.container():
-                                st.markdown(f"<h2 style='margin-bottom: 5px; color:#2E7D32;'>{user_info['name']} 님</h2>", unsafe_allow_html=True)
-                                
-                                def info_html(label, value):
-                                    return f"""
-                                    <div style='margin-bottom: 10px; background-color: #f5f5f5; padding: 10px; border-radius: 8px;'>
-                                        <span style='color: grey; font-size: 0.9em;'>{label}</span>
-                                        <br>
-                                        <span style='color: black; font-size: 1.2em; font-weight: 500;'>{value if value else '-'}</span>
-                                    </div>
-                                    """
+                            month_options = ["전체"] + [f"{i}월" for i in range(1, 13)]
+                            sel_month = fc1.selectbox("월별 조회", month_options)
+                            sel_half = fc2.selectbox("반기별 조회", ["전체", "상반기 (1~6월)", "하반기 (7~12월)"])
+                            
+                            range_input = fc3.text_input("기간 상세 조회 (YYMMDD~YYMMDD)", placeholder="예: 240101~240228")
+                            
+                            filtered_df = merged_df.copy()
+                            
+                            if range_input and '~' in range_input:
+                                try:
+                                    start_s, end_s = range_input.split('~')
+                                    start_dt = datetime.strptime(start_s.strip(), "%y%m%d")
+                                    end_dt = datetime.strptime(end_s.strip(), "%y%m%d")
+                                    filtered_df = filtered_df[
+                                        (filtered_df['attendance_date'] >= start_dt) & 
+                                        (filtered_df['attendance_date'] <= end_dt)
+                                    ]
+                                except:
+                                    st.error("기간 형식이 올바르지 않습니다.")
+                            elif sel_half == "상반기 (1~6월)":
+                                filtered_df = filtered_df[filtered_df['attendance_date'].dt.month.isin(range(1, 7))]
+                            elif sel_half == "하반기 (7~12월)":
+                                filtered_df = filtered_df[filtered_df['attendance_date'].dt.month.isin(range(7, 13))]
+                            elif sel_month != "전체":
+                                target_month = int(sel_month.replace("월", ""))
+                                filtered_df = filtered_df[filtered_df['attendance_date'].dt.month == target_month]
 
-                                fam_val = user_info.get('family', '')
-                                fam_txt = fam_val if fam_val else "해당없음"
+                            # 순서 변경: 날짜, 시간, 사업구분, 교육구분, 수업명, 강사명
+                            display_cols = ['attendance_date', 'attendance_time', 'business_category', 'education_category', 'class_name', 'instructor_name']
+                            existing_cols = [c for c in display_cols if c in filtered_df.columns]
+                            
+                            display_df = filtered_df[existing_cols].copy()
+                            display_df.rename(columns={
+                                'attendance_date': '출석 날짜', 
+                                'attendance_time': '출석 시간', 
+                                'business_category': '사업 구분',
+                                'education_category': '교육 구분',
+                                'class_name': '수업명',
+                                'instructor_name': '강사명',
+                            }, inplace=True)
+                            
+                            if '출석 날짜' in display_df.columns:
+                                display_df['출석 날짜'] = display_df['출석 날짜'].dt.strftime('%Y-%m-%d')
+                            
+                            st.caption(f"총 {len(display_df)}건의 기록이 있습니다.")
+                            # 엑셀 다운로드 버튼
+                            import io
+                            excel_buffer = io.BytesIO()
+                            display_df.to_excel(excel_buffer, index=False, engine='openpyxl')
+                            excel_buffer.seek(0)
 
-                                c1, c2, c3 = st.columns(3)
-                                c1.markdown(info_html("생년월일", user_info.get('birth_date', '-')), unsafe_allow_html=True)
-                                c2.markdown(info_html("성별", user_info.get('gender', '-')), unsafe_allow_html=True)
-                                c3.markdown(info_html("최초등록일", user_info.get('registration date', '-')), unsafe_allow_html=True)                            
-                                                                                    
-                                c4, c5, c6 = st.columns(3)
-                                c4.markdown(info_html("연락처", user_info.get('phone', '-')), unsafe_allow_html=True)
-                                c5.markdown(info_html("보호자", user_info.get('family', '-')), unsafe_allow_html=True)
-                                c6.markdown(info_html("보호자 연락처", user_info.get('emergency_contact', '-')), unsafe_allow_html=True)                            
-                                
-                                
-                                c7 = st.columns(1)[0]
-                                c7.markdown(info_html("주소", user_info.get('address', '-')), unsafe_allow_html=True)
-                                
+                            rc1, rc2, rc3 = st.columns([2, 5, 1])
+                            with rc1:
+                                st.download_button(
+                                    label="📥 엑셀 다운로드",
+                                    data=excel_buffer,
+                                    file_name=f"{user_info['name']}_수강이력.xlsx",
+                                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                                )
+                            # 순번(No.) 컬럼 추가
+                            display_df.insert(0, 'No.', range(1, len(display_df) + 1))
 
-                                flags = []
-                                if str(user_info.get('is_disabled')).upper() == "TRUE": flags.append("장애")
-                                if str(user_info.get('is_beneficiary')).upper() == "TRUE": flags.append("수급자")
-                                if str(user_info.get('is_seoul_resident')).upper() == "TRUE": flags.append("서울거주")
-                                if str(user_info.get('is_school_age')).upper() == "TRUE": flags.append("학령기")
-                                flag_str = ", ".join(flags) if flags else "특이사항 없음"
-                                
-                                st.markdown(f"""
-                                <div style='margin-bottom: 10px; background-color: #f5f5f5; padding: 10px; border-radius: 8px;'>
-                                    <span style='color: grey; font-size: 0.9em;'>특이사항</span>
-                                    <br>
-                                    <span style='color: black; font-size: 1.2em; font-weight: 500;'>{flag_str}</span>
-                                </div>
-                                """, unsafe_allow_html=True)
-
-                            st.markdown("---")
-
-                            if not df_a.empty and not df_c.empty:
-                                df_a['user_id'] = df_a['user_id'].astype(str)
-                                user_attend = df_a[df_a['user_id'] == target_user_id].copy()
-                                
-                                if user_attend.empty:
-                                    st.info("아직 출석 등록이 없습니다.")
-                                else:
-                                    df_c['class_id'] = df_c['class_id'].astype(str)
-                                    user_attend['class_id'] = user_attend['class_id'].astype(str)
-                                    merged_df = user_attend.merge(df_c, on='class_id', how='left')
-                                    
-                                    merged_df['attendance_date'] = pd.to_datetime(merged_df['attendance_date'])
-                                    merged_df = merged_df.sort_values(by=['attendance_date', 'attendance_time'], ascending=False)
-
-                                    st.subheader("📋 수강 이력 조회")
-                                    fc1, fc2 = st.columns([1, 2])
-                                    
-                                    month_options = ["전체"] + [f"{i}월" for i in range(1, 13)]
-                                    sel_month = fc1.selectbox("월별 조회", month_options)
-                                    
-                                    range_input = fc2.text_input("기간 상세 조회 (YYMMDD~YYMMDD)", placeholder="예: 240101~240228")
-                                    
-                                    filtered_df = merged_df.copy()
-                                    
-                                    if range_input and '~' in range_input:
-                                        try:
-                                            start_s, end_s = range_input.split('~')
-                                            start_dt = datetime.strptime(start_s.strip(), "%y%m%d")
-                                            end_dt = datetime.strptime(end_s.strip(), "%y%m%d")
-                                            filtered_df = filtered_df[
-                                                (filtered_df['attendance_date'] >= start_dt) & 
-                                                (filtered_df['attendance_date'] <= end_dt)
-                                            ]
-                                        except:
-                                            st.error("기간 형식이 올바르지 않습니다.")
-                                    
-                                    elif sel_month != "전체":
-                                        target_month = int(sel_month.replace("월", ""))
-                                        filtered_df = filtered_df[filtered_df['attendance_date'].dt.month == target_month]
-
-                                    display_cols = ['attendance_date', 'attendance_time', 'class_name', 'instructor_name', 'business_category', 'education_category']
-                                    existing_cols = [c for c in display_cols if c in filtered_df.columns]
-                                    
-                                    display_df = filtered_df[existing_cols].copy()
-                                    display_df.rename(columns={
-                                        'attendance_date': '출석 날짜', 
-                                        'attendance_time': '출석 시간', 
-                                        'class_name': '수업명',
-                                        'instructor_name': '강사명',
-                                        'business_category': '사업 구분',
-                                        'education_category': '교육 구분'
-                                    }, inplace=True)
-                                    
-                                    if '출석 날짜' in display_df.columns:
-                                        display_df['출석 날짜'] = display_df['출석 날짜'].dt.strftime('%Y-%m-%d')
-                                    
-                                    st.caption(f"총 {len(display_df)}건의 기록이 있습니다.")
-                                    # 엑셀 다운로드 버튼
-                                    import io
-                                    excel_buffer = io.BytesIO()
-                                    display_df.to_excel(excel_buffer, index=False, engine='openpyxl')
-                                    excel_buffer.seek(0)
-
-                                    st.download_button(
-                                        label="📥 엑셀 다운로드",
-                                        data=excel_buffer,
-                                        file_name=f"{user_info['name']}_수강이력.xlsx",
-                                        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-                                    )    
-                                    st.dataframe(display_df, use_container_width=True, hide_index=True)
-                            else:
-                                st.info("출석 또는 수업 데이터가 아직 없습니다.")
+                            with rc3:
+                                if st.button("새로고침", key="refresh_user_inquiry"):
+                                    st.cache_data.clear()
+                                    st.rerun()
+                            st.dataframe(
+                                display_df, 
+                                use_container_width=True, 
+                                hide_index=True,
+                                column_config={
+                                    "No.": st.column_config.TextColumn(width="small"),
+                                    "출석 날짜": st.column_config.TextColumn(width="small"),
+                                    "출석 시간": st.column_config.TextColumn(width="small"),
+                                    "사업 구분": st.column_config.TextColumn(width="medium"),
+                                    "교육 구분": st.column_config.TextColumn(width="medium"),
+                                    "수업명": st.column_config.TextColumn(width="medium"),
+                                    "강사명": st.column_config.TextColumn(width="small"),
+                                }
+                            )
+                    else:
+                        st.info("출석 또는 수업 데이터가 아직 없습니다.")
             else:
                 finish_loading()
                 st.warning("등록된 이용자가 없습니다.")
@@ -1122,237 +1142,285 @@ def main():
                 # -----------------------------------------------------------------
                 # [A] 수업 검색 및 선택
                 # -----------------------------------------------------------------
-                search_class = st.text_input("조회할 수업명을 입력하고 엔터를 눌러주세요", placeholder="예: 점자")
+                # [수정] 텍스트 입력 후 검색 -> Selectbox 바로 선택 (placeholder 사용)
+                class_opts = [f"{row['class_name']} - {row['instructor_name']} ({row['class_id']})" for i, row in df_c.iterrows()]
+                selected_class_str = st.selectbox("수업을 선택하세요", class_opts, index=None, placeholder="수업명을 입력하세요")
                 finish_loading()
 
-                if search_class:
-                    found_classes = df_c[df_c['class_name'].str.contains(search_class)]
+                if selected_class_str:
+                    target_class_id = selected_class_str.split('(')[-1].replace(')', '')
+                            
+                    # 수업 상세 정보 가져오기
+                    class_info = df_c[df_c['class_id'] == target_class_id].iloc[0]
+                    edu_cat_name = class_info['education_category']
+                    
+                    # -----------------------------------------------------
+                    # [B] 수업 유형 판별 (내부 vs 외부)
+                    # -----------------------------------------------------
+                    class_type = "내부수업" # 기본값
+                    if not df_edu.empty:
+                        edu_match = df_edu[df_edu['category_name'] == edu_cat_name]
+                        if not edu_match.empty:
+                            class_type = edu_match.iloc[0]['class_type']
 
-                    if found_classes.empty:
-                        st.warning("검색된 수업이 없습니다.")
+                    # -----------------------------------------------------
+                    # [C] 수업 정보 표시 (공통)
+                    # -----------------------------------------------------
+                    st.markdown("---")
+                    st.markdown("### 📖 수업 상세 정보")
+                    
+                    # 배지 표시
+                    if class_type == "외부수업":
+                        st.markdown(f"<span style='background-color:#FFF3E0; color:#EF6C00; padding:4px 8px; border-radius:4px; font-weight:bold;'>🚩 외부수업</span>", unsafe_allow_html=True)
                     else:
-                        class_opts = [f"{row['class_name']} - {row['instructor_name']} ({row['class_id']})" for i, row in found_classes.iterrows()]
-                        selected_class_str = st.selectbox("수업을 선택하세요", class_opts)
+                        st.markdown(f"<span style='background-color:#E8F5E9; color:#2E7D32; padding:4px 8px; border-radius:4px; font-weight:bold;'>🏠 내부수업</span>", unsafe_allow_html=True)
+                    
+                    def info_html(label, value):
+                        return f"""
+                        <div style='margin-bottom: 10px; background-color: #f5f5f5; padding: 10px; border-radius: 8px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;'>
+                            <span style='color: grey; font-size: 0.9em;'>{label}</span><br>
+                            <span style='color: black; font-size: 1.2em; font-weight: 500;' title='{value if value else '-'}'>{value if value else '-'}</span>
+                        </div>
+                        """
 
-                        if selected_class_str:
-                            target_class_id = selected_class_str.split('(')[-1].replace(')', '')
-                            
-                            # 수업 상세 정보 가져오기
-                            class_info = df_c[df_c['class_id'] == target_class_id].iloc[0]
-                            edu_cat_name = class_info['education_category']
-                            
-                            # -----------------------------------------------------
-                            # [B] 수업 유형 판별 (내부 vs 외부)
-                            # -----------------------------------------------------
-                            class_type = "내부수업" # 기본값
-                            if not df_edu.empty:
-                                edu_match = df_edu[df_edu['category_name'] == edu_cat_name]
-                                if not edu_match.empty:
-                                    class_type = edu_match.iloc[0]['class_type']
+                    c1, c2, c3, c4 = st.columns(4)
+                    c1.markdown(info_html("강사명", class_info.get('instructor_name', '-')), unsafe_allow_html=True)
+                    c2.markdown(info_html("사업구분", class_info.get('business_category', '-')), unsafe_allow_html=True)
+                    c3.markdown(info_html("교육구분", class_info.get('education_category', '-')), unsafe_allow_html=True)
+                    c4.markdown(info_html("강의 시작일", class_info.get('start_date', '-')), unsafe_allow_html=True)
 
-                            # -----------------------------------------------------
-                            # [C] 수업 정보 표시 (공통)
-                            # -----------------------------------------------------
-                            st.markdown("---")
-                            st.markdown("### 📖 수업 상세 정보")
-                            
-                            # 배지 표시
-                            if class_type == "외부수업":
-                                st.markdown(f"<span style='background-color:#FFF3E0; color:#EF6C00; padding:4px 8px; border-radius:4px; font-weight:bold;'>🚩 외부수업</span>", unsafe_allow_html=True)
-                            else:
-                                st.markdown(f"<span style='background-color:#E8F5E9; color:#2E7D32; padding:4px 8px; border-radius:4px; font-weight:bold;'>🏠 내부수업</span>", unsafe_allow_html=True)
-                            
-                            def info_html(label, value):
-                                return f"""
-                                <div style='margin-bottom: 10px; background-color: #f5f5f5; padding: 10px; border-radius: 8px;'>
-                                    <span style='color: grey; font-size: 0.9em;'>{label}</span><br>
-                                    <span style='color: black; font-size: 1.2em; font-weight: 500;'>{value if value else '-'}</span>
-                                </div>
-                                """
+                    st.markdown("---")
 
-                            c1, c2, c3, c4 = st.columns(4)
-                            c1.markdown(info_html("강사명", class_info.get('instructor_name', '-')), unsafe_allow_html=True)
-                            c2.markdown(info_html("사업구분", class_info.get('business_category', '-')), unsafe_allow_html=True)
-                            c3.markdown(info_html("교육구분", class_info.get('education_category', '-')), unsafe_allow_html=True)
-                            c4.markdown(info_html("강의 시작일", class_info.get('start_date', '-')), unsafe_allow_html=True)
-
-                            st.markdown("---")
-
-                            # -----------------------------------------------------
-                            # [D] 데이터 조회 로직 (분기 처리)
-                            # -----------------------------------------------------
+                    # -----------------------------------------------------
+                    # [D] 데이터 조회 로직 (분기 처리)
+                    # -----------------------------------------------------
+                    
+                    # === CASE 1: 외부수업 ===
+                    if class_type == "외부수업":
+                        st.subheader("📋 수강 내역 조회")
+                        
+                        # 해당 수업의 외부 데이터 필터링
+                        target_ext_df = df_ext[df_ext['class_id'] == target_class_id].copy()
+                        
+                        if target_ext_df.empty:
+                            st.info("등록된 외부 수업 일지가 없습니다.")
+                        else:
+                            # 날짜 형변환
+                            target_ext_df['attendance_date'] = pd.to_datetime(target_ext_df['attendance_date'])
+                            target_ext_df = target_ext_df.sort_values(by='attendance_date', ascending=True)
                             
-                            # === CASE 1: 외부수업 ===
-                            if class_type == "외부수업":
-                                st.subheader("📋 수강 내역 조회")
+                            # 필터링 UI (월별 / 반기별 / 기간별)
+                            fc1, fc2, fc3 = st.columns([1, 1, 2])
+                            month_options = ["전체"] + [f"{i}월" for i in range(1, 13)]
+                            sel_month = fc1.selectbox("월별 조회", month_options)
+                            sel_half = fc2.selectbox("반기별 조회", ["전체", "상반기 (1~6월)", "하반기 (7~12월)"])
+                            range_input = fc3.text_input("기간 상세 조회 (YYMMDD~YYMMDD)", placeholder="예: 240101~240228")
+                            
+                            # 필터링 적용
+                            filtered_df = target_ext_df.copy()
+                            if range_input and '~' in range_input:
+                                try:
+                                    start_s, end_s = range_input.split('~')
+                                    start_dt = datetime.strptime(start_s.strip(), "%y%m%d")
+                                    end_dt = datetime.strptime(end_s.strip(), "%y%m%d")
+                                    filtered_df = filtered_df[
+                                        (filtered_df['attendance_date'] >= start_dt) & 
+                                        (filtered_df['attendance_date'] <= end_dt)
+                                    ]
+                                except:
+                                    st.error("기간 형식이 올바르지 않습니다.")
+                            elif sel_half == "상반기 (1~6월)":
+                                filtered_df = filtered_df[filtered_df['attendance_date'].dt.month.isin(range(1, 7))]
+                            elif sel_half == "하반기 (7~12월)":
+                                filtered_df = filtered_df[filtered_df['attendance_date'].dt.month.isin(range(7, 13))]
+                            elif sel_month != "전체":
+                                target_month = int(sel_month.replace("월", ""))
+                                filtered_df = filtered_df[filtered_df['attendance_date'].dt.month == target_month]
+                            
+                            # 통계 계산 (외부실인원/외부연인원 합계)
+                            # 주의: 문자열로 저장되어 있을 수 있으므로 숫자로 변환
+                            filtered_df['external_member'] = pd.to_numeric(filtered_df['external_member'], errors='coerce').fillna(0)
+                            filtered_df['external_count'] = pd.to_numeric(filtered_df['external_count'], errors='coerce').fillna(0)
+                            
+                            total_mem = filtered_df['external_member'].sum()
+                            total_cnt = filtered_df['external_count'].sum()
+                            
+                            # 통계 표시
+                            # [수정] 통계 표시 (초록색 배경 적용)
+                            m1, m2 = st.columns(2)
+                            with m1: 
+                                st.markdown(style_metric_card("외부수업 실인원 합계", f"{int(total_mem)}명"), unsafe_allow_html=True)
+                            with m2: 
+                                st.markdown(style_metric_card("외부수업 연인원 합계", f"{int(total_cnt)}명"), unsafe_allow_html=True)
                                 
-                                # 해당 수업의 외부 데이터 필터링
-                                target_ext_df = df_ext[df_ext['class_id'] == target_class_id].copy()
+                            st.markdown("<br>", unsafe_allow_html=True)
                                 
-                                if target_ext_df.empty:
-                                    st.info("등록된 외부 수업 일지가 없습니다.")
-                                else:
-                                    # 날짜 형변환
-                                    target_ext_df['attendance_date'] = pd.to_datetime(target_ext_df['attendance_date'])
-                                    target_ext_df = target_ext_df.sort_values(by='attendance_date', ascending=False)
-                                    
-                                    # 필터링 UI (월별 / 기간별)
-                                    fc1, fc2 = st.columns([1, 2])
-                                    month_options = ["전체"] + [f"{i}월" for i in range(1, 13)]
-                                    sel_month = fc1.selectbox("월별 조회", month_options)
-                                    range_input = fc2.text_input("기간 상세 조회 (YYMMDD~YYMMDD)", placeholder="예: 240101~240228")
-                                    
-                                    # 필터링 적용
-                                    filtered_df = target_ext_df.copy()
-                                    if range_input and '~' in range_input:
-                                        try:
-                                            start_s, end_s = range_input.split('~')
-                                            start_dt = datetime.strptime(start_s.strip(), "%y%m%d")
-                                            end_dt = datetime.strptime(end_s.strip(), "%y%m%d")
-                                            filtered_df = filtered_df[
-                                                (filtered_df['attendance_date'] >= start_dt) & 
-                                                (filtered_df['attendance_date'] <= end_dt)
-                                            ]
-                                        except:
-                                            st.error("기간 형식이 올바르지 않습니다.")
-                                    elif sel_month != "전체":
-                                        target_month = int(sel_month.replace("월", ""))
-                                        filtered_df = filtered_df[filtered_df['attendance_date'].dt.month == target_month]
-                                    
-                                    # 통계 계산 (외부실인원/외부연인원 합계)
-                                    # 주의: 문자열로 저장되어 있을 수 있으므로 숫자로 변환
-                                    filtered_df['external_member'] = pd.to_numeric(filtered_df['external_member'], errors='coerce').fillna(0)
-                                    filtered_df['external_count'] = pd.to_numeric(filtered_df['external_count'], errors='coerce').fillna(0)
-                                    
-                                    total_mem = filtered_df['external_member'].sum()
-                                    total_cnt = filtered_df['external_count'].sum()
-                                    
-                                    # 통계 표시
-                                    # [수정] 통계 표시 (초록색 배경 적용)
-                                m1, m2 = st.columns(2)
-                                with m1: 
-                                    st.markdown(style_metric_card("외부수업 실인원 합계", f"{int(total_mem)}명"), unsafe_allow_html=True)
-                                with m2: 
-                                    st.markdown(style_metric_card("외부수업 연인원 합계", f"{int(total_cnt)}명"), unsafe_allow_html=True)
-                                    
-                                st.markdown("<br>", unsafe_allow_html=True)
-                                    
-                                # 표 표시용 컬럼 정리
-                                display_df = filtered_df[['attendance_date', 'attendance_time', 'external_member', 'external_count']].copy()
-                                display_df.columns = ['날짜', '시간', '외부수업 실인원', '외부수업 연인원']
-                                display_df['날짜'] = display_df['날짜'].dt.strftime('%Y-%m-%d')
-                                    
-                                # 엑셀 다운로드
-                                import io
-                                excel_buffer = io.BytesIO()
-                                display_df.to_excel(excel_buffer, index=False, engine='openpyxl')
+                            # 표 표시용 컬럼 정리
+                            display_df = filtered_df[['attendance_date', 'attendance_time', 'external_member', 'external_count', 'detail']].copy()
+                            display_df.columns = ['날짜', '시간', '외부수업 실인원', '외부수업 연인원', '내용']
+                            display_df['날짜'] = display_df['날짜'].dt.strftime('%Y-%m-%d')
+                            
+                            # 순번(No.) 컬럼을 맨 앞에 추가
+                            display_df.insert(0, 'No.', range(1, len(display_df) + 1))
+                                
+                            # 엑셀 다운로드
+                            import io
+                            excel_buffer = io.BytesIO()
+                            display_df.to_excel(excel_buffer, index=False, engine='openpyxl')
+                            rc1, rc2, rc3 = st.columns([2, 5, 1])
+                            with rc1:
                                 st.download_button(
                                     label="📥 엑셀 다운로드",
                                     data=excel_buffer.getvalue(),
                                     file_name=f"{class_info['class_name']}_외부일지.xlsx",
                                     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
                                 )
-                                    
-                                st.dataframe(display_df, use_container_width=True, hide_index=True)
-
-                            # === CASE 2: 내부수업 (기존 로직 유지) ===
-                            else:
-                                st.subheader("📋 수강 내역 조회")
+                            with rc3:
+                                if st.button("새로고침", key="refresh_class_inquiry_ext"):
+                                    st.cache_data.clear()
+                                    st.rerun()
                                 
-                                class_attend = df_a[df_a['class_id'] == target_class_id].copy()
+                            st.dataframe(
+                                display_df, 
+                                use_container_width=True, 
+                                hide_index=True,
+                                column_config={
+                                    "No.": st.column_config.TextColumn(width="small"),
+                                    "날짜": st.column_config.TextColumn(width="small"),
+                                    "시간": st.column_config.TextColumn(width="medium"),
+                                    "외부수업 실인원": st.column_config.TextColumn(width="small"),
+                                    "외부수업 연인원": st.column_config.TextColumn(width="small"),
+                                    "내용": st.column_config.TextColumn(width="large"),
+                                }
+                            )
 
-                                if class_attend.empty:
-                                    st.info("아직 출석 등록이 없습니다.")
-                                else:
-                                    merged_df = class_attend.merge(df_u, on='user_id', how='left')
-                                    merged_df['class_name'] = class_info['class_name'] # 통계 함수용
-                                    
-                                    merged_df['attendance_date'] = pd.to_datetime(merged_df['attendance_date'])
-                                    merged_df = merged_df.sort_values(by=['attendance_date', 'attendance_time'], ascending=False)
+                    # === CASE 2: 내부수업 (기존 로직 유지) ===
+                    else:
+                        st.subheader("📋 수강 내역 조회")
+                        
+                        class_attend = df_a[df_a['class_id'] == target_class_id].copy()
 
-                                    # 필터링 UI
-                                    fc1, fc2 = st.columns([1, 2])
-                                    month_options = ["전체"] + [f"{i}월" for i in range(1, 13)]
-                                    sel_month = fc1.selectbox("월별 조회", month_options)
-                                    range_input = fc2.text_input("기간 상세 조회 (YYMMDD~YYMMDD)", placeholder="예: 240101~240228")
+                        if class_attend.empty:
+                            st.info("아직 출석 등록이 없습니다.")
+                        else:
+                            merged_df = class_attend.merge(df_u, on='user_id', how='left')
+                            merged_df['class_name'] = class_info['class_name'] # 통계 함수용
+                            
+                            merged_df['attendance_date'] = pd.to_datetime(merged_df['attendance_date'])
+                            merged_df = merged_df.sort_values(by=['attendance_date', 'attendance_time'], ascending=True)
 
-                                    filtered_df = merged_df.copy()
+                            # 필터링 UI (월별 / 반기별 / 기간별)
+                            fc1, fc2, fc3 = st.columns([1, 1, 2])
+                            month_options = ["전체"] + [f"{i}월" for i in range(1, 13)]
+                            sel_month = fc1.selectbox("월별 조회", month_options)
+                            sel_half = fc2.selectbox("반기별 조회", ["전체", "상반기 (1~6월)", "하반기 (7~12월)"])
+                            range_input = fc3.text_input("기간 상세 조회 (YYMMDD~YYMMDD)", placeholder="예: 240101~240228")
 
-                                    if range_input and '~' in range_input:
-                                        try:
-                                            start_s, end_s = range_input.split('~')
-                                            start_dt = datetime.strptime(start_s.strip(), "%y%m%d")
-                                            end_dt = datetime.strptime(end_s.strip(), "%y%m%d")
-                                            filtered_df = filtered_df[
-                                                (filtered_df['attendance_date'] >= start_dt) & 
-                                                (filtered_df['attendance_date'] <= end_dt)
-                                            ]
-                                        except:
-                                            st.error("기간 형식이 올바르지 않습니다.")
-                                    elif sel_month != "전체":
-                                        target_month = int(sel_month.replace("월", ""))
-                                        filtered_df = filtered_df[filtered_df['attendance_date'].dt.month == target_month]
+                            filtered_df = merged_df.copy()
 
-                                    # 4가지 인원 통계 (함수 활용)
-                                    c_real, c_cum, c_sub, c_sub_per = calculate_stat_metrics(filtered_df)
-                                    
-                                    # 통계 카드 표시
-                                    def style_metric(label, value, sub_text):
-                                        return f"""
-                                        <div style="background-color: #E8F5E9; padding: 15px; border-radius: 12px; text-align: center; border: 1px solid #C8E6C9;">
-                                            <p style="margin:0; color: #555; font-size: 0.9em; font-weight: bold;">{label}</p>
-                                            <h3 style="margin: 5px 0; color: #2E7D32; font-weight: 800;">{value}</h3>
-                                            <p style="margin:0; color: #888; font-size: 0.75em;">{sub_text}</p>
-                                        </div>
-                                        """
-                                    m1, m2, m3, m4 = st.columns(4)
-                                    with m1: st.markdown(style_metric("실인원", f"<span style='margin-left: 20px;'>{c_real}명</span>", "순수 이용자 수"), unsafe_allow_html=True)
-                                    with m2: st.markdown(style_metric("연인원", f"<span style='margin-left: 20px;'>{c_cum}명</span>", "총 출석 횟수"), unsafe_allow_html=True)
-                                    with m3: st.markdown(style_metric("과목구분 실인원", f"<span style='margin-left: 20px;'>{c_sub}명</span>", "동일인이라도 수강과목이 다르면 따로 집계"), unsafe_allow_html=True)
-                                    with m4: st.markdown(style_metric("과목반기구분 실인원", f"<span style='margin-left: 20px;'>{c_sub_per}명</span>", "수강과목, 기간(반기)이 다르면 따로 집계"), unsafe_allow_html=True)
+                            if range_input and '~' in range_input:
+                                try:
+                                    start_s, end_s = range_input.split('~')
+                                    start_dt = datetime.strptime(start_s.strip(), "%y%m%d")
+                                    end_dt = datetime.strptime(end_s.strip(), "%y%m%d")
+                                    filtered_df = filtered_df[
+                                        (filtered_df['attendance_date'] >= start_dt) & 
+                                        (filtered_df['attendance_date'] <= end_dt)
+                                    ]
+                                except:
+                                    st.error("기간 형식이 올바르지 않습니다.")
+                            elif sel_half == "상반기 (1~6월)":
+                                filtered_df = filtered_df[filtered_df['attendance_date'].dt.month.isin(range(1, 7))]
+                            elif sel_half == "하반기 (7~12월)":
+                                filtered_df = filtered_df[filtered_df['attendance_date'].dt.month.isin(range(7, 13))]
+                            elif sel_month != "전체":
+                                target_month = int(sel_month.replace("월", ""))
+                                filtered_df = filtered_df[filtered_df['attendance_date'].dt.month == target_month]
 
-                                    st.markdown("<br>", unsafe_allow_html=True)
+                            # 4가지 인원 통계 (함수 활용)
+                            c_real, c_cum, c_sub, c_sub_per = calculate_stat_metrics(filtered_df)
+                            
+                            # 통계 카드 표시
+                            def style_metric(label, value, sub_text):
+                                return f"""
+                                <div style="background-color: #E8F5E9; padding: 15px; border-radius: 12px; text-align: center; border: 1px solid #C8E6C9;">
+                                    <p style="margin:0; color: #555; font-size: 0.9em; font-weight: bold;">{label}</p>
+                                    <h3 style="margin: 5px 0; color: #2E7D32; font-weight: 800;">{value}</h3>
+                                    <p style="margin:0; color: #888; font-size: 0.75em;">{sub_text}</p>
+                                </div>
+                                """
+                            m1, m2, m3, m4 = st.columns(4)
+                            with m1: st.markdown(style_metric("실인원", f"<span style='margin-left: 20px;'>{c_real}명</span>", "순수 이용자 수"), unsafe_allow_html=True)
+                            with m2: st.markdown(style_metric("연인원", f"<span style='margin-left: 20px;'>{c_cum}명</span>", "총 출석 횟수"), unsafe_allow_html=True)
+                            with m3: st.markdown(style_metric("과목구분 실인원", f"<span style='margin-left: 20px;'>{c_sub}명</span>", "동일인이라도 수강과목이 다르면 따로 집계"), unsafe_allow_html=True)
+                            with m4: st.markdown(style_metric("과목반기구분 실인원", f"<span style='margin-left: 20px;'>{c_sub_per}명</span>", "수강과목, 기간(반기)이 다르면 따로 집계"), unsafe_allow_html=True)
 
-                                    # 표 표시
-                                    display_cols = ['attendance_date', 'attendance_time', 'name', 'gender', 'is_disabled', 'is_school_age', 'registration date']
-                                    existing_cols = [c for c in display_cols if c in filtered_df.columns]
-                                    display_df = filtered_df[existing_cols].copy()
+                            st.markdown("<br>", unsafe_allow_html=True)
 
-                                    # 표 데이터 가공 (신규/기존, 장애/비장애 등 한글화)
-                                    current_year = datetime.now().year
-                                    def check_new_user(reg_date):
-                                        try:
-                                            nums = "".join(filter(str.isdigit, str(reg_date)))
-                                            if len(nums) >= 4 and int(nums[:4]) == current_year: return '신규'
-                                        except: pass
-                                        return '기존'
+                            # 표 표시 (detail 포함)
+                            display_cols = ['attendance_date', 'attendance_time', 'name', 'gender', 'is_disabled', 'is_school_age', 'registration date', 'detail']
+                            existing_cols = [c for c in display_cols if c in filtered_df.columns]
+                            display_df = filtered_df[existing_cols].copy()
 
-                                    if 'registration date' in display_df.columns:
-                                        display_df['registration date'] = display_df['registration date'].apply(check_new_user)
-                                    if 'is_disabled' in display_df.columns:
-                                        display_df['is_disabled'] = display_df['is_disabled'].apply(lambda x: '장애' if str(x).upper() == 'TRUE' else '비장애')
-                                    if 'is_school_age' in display_df.columns:
-                                        display_df['is_school_age'] = display_df['is_school_age'].apply(lambda x: '학령기' if str(x).upper() == 'TRUE' else '성인기')
+                            # 표 데이터 가공 (신규/기존, 장애/비장애 등 한글화)
+                            current_year = datetime.now().year
+                            def check_new_user(reg_date):
+                                try:
+                                    nums = "".join(filter(str.isdigit, str(reg_date)))
+                                    if len(nums) >= 4 and int(nums[:4]) == current_year: return '신규'
+                                except: pass
+                                return '기존'
 
-                                    display_df.rename(columns={
-                                        'attendance_date': '출석 날짜', 'attendance_time': '출석 시간', 'name': '이용자명',
-                                        'gender': '성별', 'is_disabled': '장애', 'is_school_age': '학령기', 'registration date': '신규'
-                                    }, inplace=True)
+                            if 'registration date' in display_df.columns:
+                                display_df['registration date'] = display_df['registration date'].apply(check_new_user)
+                            if 'is_disabled' in display_df.columns:
+                                display_df['is_disabled'] = display_df['is_disabled'].apply(lambda x: '장애' if str(x).upper() == 'TRUE' else '비장애')
+                            if 'is_school_age' in display_df.columns:
+                                display_df['is_school_age'] = display_df['is_school_age'].apply(lambda x: '학령기' if str(x).upper() == 'TRUE' else '성인기')
 
-                                    if '출석 날짜' in display_df.columns:
-                                        display_df['출석 날짜'] = display_df['출석 날짜'].dt.strftime('%Y-%m-%d')
+                            display_df.rename(columns={
+                                'attendance_date': '출석 날짜', 'attendance_time': '출석 시간', 'name': '이용자명',
+                                'gender': '성별', 'is_disabled': '장애', 'is_school_age': '학령기', 'registration date': '신규', 'detail': '내용'
+                            }, inplace=True)
+                            
+                            # 순번(No.) 컬럼 추가
+                            display_df.insert(0, 'No.', range(1, len(display_df) + 1))
 
-                                    # 엑셀 다운로드
-                                    import io
-                                    excel_buffer = io.BytesIO()
-                                    display_df.to_excel(excel_buffer, index=False, engine='openpyxl')
-                                    st.download_button(
-                                        label="📥 엑셀 다운로드",
-                                        data=excel_buffer.getvalue(),
-                                        file_name=f"{class_info['class_name']}_수강자목록.xlsx",
-                                        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-                                    )
-                                    st.dataframe(display_df, use_container_width=True, hide_index=True)
+                            if '출석 날짜' in display_df.columns:
+                                display_df['출석 날짜'] = display_df['출석 날짜'].dt.strftime('%Y-%m-%d')
+
+                            # 엑셀 다운로드
+                            import io
+                            excel_buffer = io.BytesIO()
+                            display_df.to_excel(excel_buffer, index=False, engine='openpyxl')
+                            rc1, rc2, rc3 = st.columns([2, 5, 1])
+                            with rc1:
+                                st.download_button(
+                                    label="📥 엑셀 다운로드",
+                                    data=excel_buffer.getvalue(),
+                                    file_name=f"{class_info['class_name']}_수강자목록.xlsx",
+                                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                                )
+                            with rc3:
+                                if st.button("새로고침", key="refresh_class_inquiry_int"):
+                                    st.cache_data.clear()
+                                    st.rerun()
+                            st.dataframe(
+                                display_df, 
+                                use_container_width=True, 
+                                hide_index=True,
+                                column_config={
+                                    "No.": st.column_config.TextColumn(width="small"),
+                                    "출석 날짜": st.column_config.TextColumn(width="small"),
+                                    "출석 시간": st.column_config.TextColumn(width="medium"),
+                                    "이용자명": st.column_config.TextColumn(width="small"),
+                                    "성별": st.column_config.TextColumn(width="small"),
+                                    "장애": st.column_config.TextColumn(width="small"),
+                                    "학령기": st.column_config.TextColumn(width="small"),
+                                    "신규": st.column_config.TextColumn(width="small"),
+                                    "내용": st.column_config.TextColumn(width="large"),
+                                }
+                            )
             else:
                 st.warning("등록된 수업이 없습니다.")  
 
@@ -1411,6 +1479,10 @@ def main():
                 if "success_msg" in st.session_state:
                     st.toast(st.session_state["success_msg"], icon="✅")
                     del st.session_state["success_msg"]  # 메시지 한 번 보여줬으면 삭제 (안 그러면 계속 뜸)
+                if "error_msg" in st.session_state:
+                    st.toast(st.session_state["error_msg"], icon="⚠️")
+                    del st.session_state["error_msg"]
+
                 
                 if df_u.empty or df_c.empty:
                     st.warning("이용자와 수업을 먼저 등록하세요.")
@@ -1419,17 +1491,19 @@ def main():
                 # -----------------------------------------------------------------
                 # [A] 수업 선택 (단일 선택이므로 자동 닫힘 유지) - FORM 외부 유지 (리로드 필요)
                 # -----------------------------------------------------------------
-                sel_class_name = st.selectbox("1. 수업명", df_c['class_name'].unique())
+                # [수정] 수업 선택 시 빈 값 시작 & 검색 가능하도록 설정
+                sel_class_name = st.selectbox("1. 수업명", df_c['class_name'].unique(), index=None, placeholder="수업명을 입력하세요")
                 
-                # 2. 강사명 선택
+                if not sel_class_name:
+                    st.info("수업을 선택해주세요.")
+                    return
+
+                # 2. 강사명 선택 & 상세 정보 (폼 내부로 이동하기 위해 준비만 함)
                 filtered_classes = df_c[df_c['class_name'] == sel_class_name]
-                instructor_list = filtered_classes['instructor_name'].unique()
-                sel_instructor = st.selectbox("2. 강사명", instructor_list)
                 
-                # 상세 정보
-                target_class_row = filtered_classes[filtered_classes['instructor_name'] == sel_instructor].iloc[0]
-                real_class_id = target_class_row['class_id']
-                edu_cat_name = target_class_row['education_category']
+                # 수업 유형 판별 (첫 번째 행 기준 - 동일 수업명은 동일 유형이라고 가정)
+                first_row = filtered_classes.iloc[0]
+                edu_cat_name = first_row['education_category']
                 
                 # 3. 수업 유형 판별
                 class_type = "내부수업"
@@ -1438,17 +1512,127 @@ def main():
                     if not edu_match.empty:
                         class_type = edu_match.iloc[0]['class_type']
 
-                if class_type == "외부수업":                 
-                    st.markdown(f"<div style='margin-left: 50px; margin-top: -180px;'><span style='background-color:#FFF3E0; color:#EF6C00; padding:4px 8px; border-radius:4px; font-size:0.8em; font-weight:bold;'>🚩 외부수업 </span></div>", unsafe_allow_html=True)
-                else:
-                    st.markdown(f"<div style='margin-left: 50px; margin-top: -180px;'><span style='background-color:#E8F5E9; color:#2E7D32; padding:4px 8px; border-radius:4px; font-size:0.8em; font-weight:bold;'>🏠 내부수업 </span></div>", unsafe_allow_html=True)
+                # (배지 표시 위치 이동됨)
                 
+                # -----------------------------------------------------------------
+                # [Callback] 출석 등록 처리 (리로드 1회로 단축)
+                # -----------------------------------------------------------------
+                def submit_attendance_callback():
+                    # 현재 Form Key 가져오기
+                    current_key = st.session_state.att_cls_key
+                    
+                    # [추가] 강사명 선택 값 가져오기
+                    in_instructor = st.session_state.get(f"att_inst_{current_key}", "")
+                    
+                    # real_class_id 찾기
+                    if len(filtered_classes) > 1 and in_instructor:
+                         target_row = filtered_classes[filtered_classes['instructor_name'] == in_instructor]
+                         if not target_row.empty:
+                             real_class_id = target_row.iloc[0]['class_id']
+                         else:
+                             st.session_state["error_msg"] = "강사 정보를 찾을 수 없습니다."
+                             return
+                    else:
+                        real_class_id = filtered_classes.iloc[0]['class_id']
+
+                    # 1. 입력값 가져오기
+                    in_date = st.session_state.get(f"att_date_{current_key}", "")
+                    in_start = st.session_state.get(f"att_start_{current_key}", "")
+                    in_end = st.session_state.get(f"att_end_{current_key}", "")
+                    in_detail = st.session_state.get(f"att_detail_{current_key}", "")
+
+                    
+                    # 2. 시간 입력 검증
+                    if not in_start or not in_end:
+                        st.session_state["error_msg"] = "⚠️ 출석 시간을 입력해주세요."
+                        return 
+                    
+                    # 3. 날짜/시간 포맷팅
+                    now_date_str = datetime.now().strftime("%y%m%d")
+                    final_date = format_date_short_input(in_date) if in_date else now_date_str
+                    final_start = format_time_input(in_start)
+                    final_end = format_time_input(in_end)
+                    
+                    save_date_str = ""
+                    try:
+                        date_nums = "".join(filter(str.isdigit, final_date))
+                        if len(date_nums) == 6:
+                            save_date_str = datetime.strptime(date_nums, "%y%m%d").strftime("%Y-%m-%d")
+                        else:
+                            st.session_state["error_msg"] = f"날짜 형식이 올바르지 않습니다. ({final_date})"
+                            return
+                    except ValueError:
+                        st.session_state["error_msg"] = "날짜 형식이 올바르지 않습니다."
+                        return
+                    
+                    save_time_str = f"{final_start} ~ {final_end}"
+
+                    # 4. 저장 실행 (분기 처리)
+                    if class_type == "외부수업":
+                        e_mem = st.session_state.get(f"ext_mem_{current_key}", 0)
+                        e_tot = st.session_state.get(f"ext_tot_{current_key}", 0)
+                        
+                        if e_mem == 0 and e_tot == 0:
+                            st.session_state["error_msg"] = "인원수를 입력해주세요."
+                            return
+                        
+                        new_ext_id = f"EXT{int(time.time())}"
+                        ws_ext.append_row([
+                            new_ext_id, real_class_id, sel_class_name, save_date_str, save_time_str, 
+                            int(e_mem), int(e_tot), in_detail
+                        ])
+                        st.session_state["success_msg"] = f"🚩 외부수업 등록 완료! (실인원 {e_mem}명)"
+                        
+                    else: # 내부수업
+                        sel_usrs = st.session_state.get(f"attendance_user_select_{current_key}", [])
+                        if not sel_usrs:
+                            st.session_state["error_msg"] = "참여자를 최소 1명 이상 선택해주세요."
+                            return
+                        
+                        rows = []
+                        for u_str in sel_usrs:
+                            try:
+                                target_uid = u_str.split('(')[-1].replace(')', '')
+                            except:
+                                target_uid = ""
+                            
+                            if target_uid:
+                                rows.append([f"A{int(time.time())}_{random.randint(100,999)}", target_uid, sel_class_name, real_class_id, save_date_str, save_time_str, in_detail])
+                        
+                        if rows:
+                            ws_a.append_rows(rows)
+                            st.session_state["success_msg"] = f"🏠 내부수업 {len(rows)}명 등록 완료!"
+                            # 저장 성공 시 선택 값 초기화 (Session State로 관리하는 Class 키만 변경해서 폼 리셋 유도)
+                            st.session_state.att_cls_val = [] 
+                        else:
+                            st.session_state["error_msg"] = "이용자 ID를 찾을 수 없습니다."
+                            return
+                            
+                    # 5. 성공 시 Input Key 변경 -> Form 초기화 효과
+                    st.session_state.att_cls_key += 1
+                    
+                    # (리로드는 st.form_submit_button에 의해 자동 발생함)
+
                 # -----------------------------------------------------------------
                 # [B] 폼 입력 (이용자 선택 + 날짜/시간 + 버튼 통합)
                 # -----------------------------------------------------------------
                 # ⭐ 여기서부터 st.form 시작 (이용자 선택도 포함시킴)
                 with st.form("attendance_form"):
                     
+                    # [수정] 강사명 선택 (항상 Selectbox) + 우측에 배지 배치
+                    c_inst, c_badge = st.columns([3, 1])
+                    with c_inst:
+                        instructor_list = filtered_classes['instructor_name'].unique()
+                        st.selectbox("2. 강사명", instructor_list, key=f"att_inst_{st.session_state.att_cls_key}")
+                    
+                    with c_badge:
+                        # 줄맞춤용 여백 (배지가 커지면서 위쪽 여백은 살짝 줄임) - 5px 추가
+                        st.markdown("<div style='height: 35px;'></div>", unsafe_allow_html=True)
+                        if class_type == "외부수업":
+                            st.markdown(f"<span style='background-color:#FFF3E0; color:#EF6C00; padding:8px 12px; border-radius:6px; font-weight:bold; font-size:1.0em;'>🚩 외부수업</span>", unsafe_allow_html=True)
+                        else:
+                            st.markdown(f"<span style='background-color:#E8F5E9; color:#2E7D32; padding:8px 12px; border-radius:6px; font-weight:bold; font-size:1.0em;'>🏠 내부수업</span>", unsafe_allow_html=True)
+
                     sel_users = []          # 변수 초기화
                     ext_member_cnt = 0
                     ext_total_cnt = 0
@@ -1487,72 +1671,8 @@ def main():
                     st.markdown("<br>", unsafe_allow_html=True)
                     
                     # === [등록 버튼] ===
-                    submitted = st.form_submit_button("등록하기", type="primary", use_container_width=True)
-
-                    if submitted:
-                        # 1. 시간 입력 검증
-                        if not input_start_time or not input_end_time:
-                            st.warning("⚠️ 출석 시간을 입력해주세요.")
-                            return 
-                        
-                        # 2. 날짜/시간 포맷팅
-                        final_date = format_date_short_input(input_date) if input_date else now_date_str
-                        final_start = format_time_input(input_start_time)
-                        final_end = format_time_input(input_end_time)
-                        
-                        save_date_str = ""
-                        try:
-                            date_nums = "".join(filter(str.isdigit, final_date))
-                            if len(date_nums) == 6:
-                                save_date_str = datetime.strptime(date_nums, "%y%m%d").strftime("%Y-%m-%d")
-                            else:
-                                st.error(f"날짜 형식이 올바르지 않습니다. ({final_date})")
-                                return
-                        except ValueError:
-                            st.error("날짜 형식이 올바르지 않습니다.")
-                            return
-                        
-                        save_time_str = f"{final_start} ~ {final_end}"
-
-                        # 3. 저장 실행 (분기 처리)
-                        if class_type == "외부수업":
-                            if ext_member_cnt == 0 and ext_total_cnt == 0:
-                                st.warning("인원수를 입력해주세요.")
-                            else:
-                                new_ext_id = f"EXT{int(time.time())}"
-                                ws_ext.append_row([
-                                    new_ext_id, real_class_id, save_date_str, save_time_str, 
-                                    int(ext_member_cnt), int(ext_total_cnt)
-                                ])
-                                sst.session_state["success_msg"] = f"🚩 외부수업 등록 완료! (실인원 {ext_member_cnt}명)"
-                                st.session_state.att_cls_key += 1
-                                st.rerun()
-                                
-                        else: # 내부수업
-                            if not sel_users:
-                                st.error("참여자를 최소 1명 이상 선택해주세요.")
-                            else:
-                                rows = []
-                                for u_str in sel_users:
-                                    try:
-                                        target_uid = u_str.split('(')[-1].replace(')', '')
-                                    except:
-                                        target_uid = ""
-                                    
-                                    if target_uid:
-                                        rows.append([f"A{int(time.time())}_{random.randint(100,999)}", target_uid, real_class_id, save_date_str, save_time_str, input_detail])
-                                
-                                if rows:
-                                    ws_a.append_rows(rows)
-                                    # 저장 성공 시 선택 값 초기화 (Session State로 관리하는 Class 키만 변경해서 폼 리셋 유도)
-                                    st.session_state.att_cls_val = [] 
-                                    st.session_state.att_cls_key += 1
-                                    
-                                    st.session_state["success_msg"] = f"🏠 내부수업 {len(rows)}명 등록 완료!"
-                                    st.session_state.att_cls_key += 1
-                                    st.rerun()
-                                else:
-                                    st.error("이용자 ID를 찾을 수 없습니다.")
+                    # [수정] 콜백 함수로 등록 시 리로드를 1번으로 단축
+                    st.form_submit_button("등록하기", type="primary", use_container_width=True, on_click=submit_attendance_callback)
 
             # [실행]
             render_attendance_ui()
@@ -1560,21 +1680,37 @@ def main():
         # =========================================================================
         # 3. 운영 현황 (대대적 개편: 세부 통계, 누적 비교, 그래프 시각화)
         # =========================================================================
+
         elif menu == "운영 현황":
-            st.title("📊 운영 현황")
+            # [수정] 타이틀 + 새로고침 버튼 (col_title / col_btn)
+            col_t, col_b = st.columns([6, 1])
+            with col_t:
+                st.title("📊 운영 현황")
+                st.markdown("<div style='margin-bottom: 20px;'></div>", unsafe_allow_html=True)
+            with col_b:
+                st.markdown("<div style='height: 20px;'></div>", unsafe_allow_html=True) # 줄맞춤용 spacer
+                if st.button("새로고침", key="refresh_stats_main", use_container_width=True):
+                    st.cache_data.clear()
+                    st.rerun()
         
             df_u = get_cached_users()
             df_c = get_cached_classes(yy)
+            # [복구] 누락된 데이터 로드 코드 복구
             df_a = get_cached_attendance(yy)
             df_ext = get_cached_external(yy)
             df_edu = get_cached_edu_categories()
-        
+
             finish_loading()
         
             if not df_u.empty and not df_c.empty and not df_a.empty:
 
                 if not df_a.empty and not df_c.empty and not df_u.empty:
                     # 데이터 타입 통일
+                    # ... (데이터 타입 변환 코드들은 기존과 동일하므로 생략하지 않고 그대로 유지해야 함, 
+                    #      하지만 replace_file_content는 범위를 지정해서 교체하므로 필요한 부분만 교체)
+                    # 여기서는 전체 로직을 다루는 큰 블록을 교체하는 것이 안전함.
+
+                    # (데이터 로딩 및 전처리 부분 생략 - 기존 유지)
                     df_u['user_id'] = df_u['user_id'].astype(str)
                     df_a['user_id'] = df_a['user_id'].astype(str)
                     df_a['class_id'] = df_a['class_id'].astype(str)
@@ -1585,14 +1721,58 @@ def main():
                     df_ext['class_id'] = df_ext['class_id'].astype(str)
                     df_ext_merged = df_ext.merge(df_c[['class_id', 'business_category', 'education_category']], on='class_id', how='left')
 
+
                     # 메인 병합 데이터프레임 (출석 + 수업 + 이용자)
-                    df_m = df_a.merge(df_c, on='class_id', how='left').merge(df_u, on='user_id', how='left')
+                    # [수정] class_name 중복 방지를 위한 suffix 설정
+                    df_m = df_a.merge(df_c, on='class_id', how='left', suffixes=('_att', '')).merge(df_u, on='user_id', how='left')
                     
                     # -------------------------------------------------------------
-                    # [0] 종합 인원 집계 (기존 유지)
+                    # [추가] 필터링 (월별 / 반기별 / 기간 상세)
                     # -------------------------------------------------------------
+                    
+                    fc1, fc2, fc3 = st.columns([1, 1, 2])
+                    
+                    month_options = ["전체"] + [f"{i}월" for i in range(1, 13)]
+                    sel_month = fc1.selectbox("월별 조회", month_options, key="stats_month")
+                    sel_half = fc2.selectbox("반기별 조회", ["전체", "상반기 (1~6월)", "하반기 (7~12월)"], key="stats_half")
+                    range_input = fc3.text_input("기간 상세 조회 (YYMMDD~YYMMDD)", placeholder="예: 240101~240228", key="stats_range")
+                    
+                    filtered_df = df_m.copy()
+                    
+                    # 반기 컬럼 미리 생성 (통계용)
+                    filtered_df['half'] = filtered_df['attendance_date'].apply(lambda d: '상반기' if d.month <= 6 else '하반기')
+                    
+                    current_filter_label = "전체 기간"
+
+                    if range_input and '~' in range_input:
+                        try:
+                            start_s, end_s = range_input.split('~')
+                            start_dt = datetime.strptime(start_s.strip(), "%y%m%d")
+                            end_dt = datetime.strptime(end_s.strip(), "%y%m%d")
+                            filtered_df = filtered_df[
+                                (filtered_df['attendance_date'] >= start_dt) & 
+                                (filtered_df['attendance_date'] <= end_dt)
+                            ]
+                            current_filter_label = f"{start_dt.strftime('%Y-%m-%d')} ~ {end_dt.strftime('%Y-%m-%d')}"
+                        except:
+                            st.error("기간 형식이 올바르지 않습니다.")
+                    elif sel_half == "상반기 (1~6월)":
+                        filtered_df = filtered_df[filtered_df['attendance_date'].dt.month.isin(range(1, 7))]
+                        current_filter_label = f"{datetime.now().year}년 상반기"
+                    elif sel_half == "하반기 (7~12월)":
+                        filtered_df = filtered_df[filtered_df['attendance_date'].dt.month.isin(range(7, 13))]
+                        current_filter_label = f"{datetime.now().year}년 하반기"
+                    elif sel_month != "전체":
+                        target_month = int(sel_month.replace("월", ""))
+                        filtered_df = filtered_df[filtered_df['attendance_date'].dt.month == target_month]
+                        current_filter_label = f"{datetime.now().year}년 {target_month}월"
+
+                    # -------------------------------------------------------------
+                    # [0] 종합 인원 집계
+                    # -------------------------------------------------------------
+                    st.markdown("---")
                     st.markdown("### 📈 종합 인원 집계")
-                    c_real, c_cum, c_sub, c_sub_per = calculate_stat_metrics(df_m)
+                    c_real, c_cum, c_sub, c_sub_per = calculate_stat_metrics(filtered_df)
 
                     def style_metric(label, value, sub_text):
                         return f"""
@@ -1603,13 +1783,18 @@ def main():
                         </div>
                         """
 
+                    # [수정] 4개의 통계 카드를 한 줄로 정렬
                     m1, m2, m3, m4 = st.columns(4)
                     with m1: st.markdown(style_metric("① 실인원", f"{c_real:,}명", "순수 이용자 수"), unsafe_allow_html=True)
                     with m2: st.markdown(style_metric("② 연인원", f"{c_cum:,}명", "총 출석 횟수"), unsafe_allow_html=True)
-                    with m3: st.markdown(style_metric("③ 과목구분 실인원", f"{c_sub:,}명", "동일인이라도 수강과목이 다르면 따로 집계"), unsafe_allow_html=True)
-                    with m4: st.markdown(style_metric("④ 과목반기구분 실인원", f"{c_sub_per:,}명", "수강과목, 기간(반기)이 다르면 따로 집계"), unsafe_allow_html=True)
-                    
+                    with m3: st.markdown(style_metric("③ 과목구분 실인원", f"{c_sub:,}명", "과목별 이용자 합산"), unsafe_allow_html=True)
+                    with m4: st.markdown(style_metric("④ 과목반기구분 실인원", f"{c_sub_per:,}명", "과목+반기별 이용자 합산"), unsafe_allow_html=True)
+
                     st.markdown("---")
+                    
+                    # -------------------------------------------------------------
+                    # [추가] 목표 달성 표 (2번과 3번 사이 -> 종합집계 하단)
+                    # -------------------------------------------------------------
 
                     # 엑셀 다운로드용 헬퍼 함수 (import io 필요)
                     import io
@@ -1623,6 +1808,90 @@ def main():
                             file_name=f"{file_label}_{datetime.now().strftime('%Y%m%d')}.xlsx",
                             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
                         )
+
+                    # -------------------------------------------------------------
+                    # [추가] 목표 달성 표 (2번과 3번 사이 -> 종합집계 하단)
+                    # -------------------------------------------------------------
+                    st.subheader("🎯 목표 달성 현황")
+                    
+                    if not df_edu.empty:
+                        goal_rows = []
+                        
+                        # [변경] df_edu에 있는 모든 카테고리를 기준으로 순회 (수업 없어도 표시)
+                        # df_edu 컬럼: category_id, business_category, category_name(-> education_category), class_type, category_goal_num, category_goal_mem
+                        
+                        # 목표값 컬럼이 없을 수 있으므로 예외처리
+                        if 'category_goal_num' not in df_edu.columns: df_edu['category_goal_num'] = 0
+                        if 'category_goal_mem' not in df_edu.columns: df_edu['category_goal_mem'] = 0
+                        
+                        # 숫자형 변환
+                        df_edu['category_goal_num'] = pd.to_numeric(df_edu['category_goal_num'], errors='coerce').fillna(0)
+                        df_edu['category_goal_mem'] = pd.to_numeric(df_edu['category_goal_mem'], errors='coerce').fillna(0)
+                        
+                        for i, r in df_edu.iterrows():
+                            b_cat = r['business_category']
+                            e_cat = r['category_name'] # 이게 education_category와 매칭됨
+                            t_cum = int(r['category_goal_num'])
+                            t_real = int(r['category_goal_mem'])
+                            
+                            # 현재 필터링된 데이터에서 해당 카테고리 값 집계
+                            # filtered_df에서 b_cat, e_cat 일치하는 것 찾기
+                            if not filtered_df.empty:
+                                target_rows = filtered_df[
+                                    (filtered_df['business_category'] == b_cat) & 
+                                    (filtered_df['education_category'] == e_cat)
+                                ]
+                                
+                                # 연인원
+                                g_cum = len(target_rows)
+                                # 실인원 (과목반기구분 실인원)
+                                g_real = target_rows[['user_id', 'class_name', 'half']].drop_duplicates().shape[0]
+                            else:
+                                g_cum = 0
+                                g_real = 0
+                                
+                            # 달성률
+                            r_cum = (g_cum / t_cum * 100) if t_cum > 0 else 0
+                            r_real = (g_real / t_real * 100) if t_real > 0 else 0
+                            
+                            goal_rows.append({
+                                "사업구분": b_cat,
+                                "교육구분": e_cat,
+                                "목표 연인원": f"{t_cum:,}",
+                                "연인원": f"{g_cum:,}",
+                                "연인원 달성률": f"{r_cum:.1f}%",
+                                "목표 실인원": f"{t_real:,}",
+                                "실인원": f"{g_real:,}",
+                                "실인원 달성률": f"{r_real:.1f}%"
+                            })
+                            
+                        goal_df = pd.DataFrame(goal_rows)
+                        # 컬럼 순서 지정
+                        goal_df = goal_df[["사업구분", "교육구분", "목표 연인원", "연인원", "연인원 달성률", "목표 실인원", "실인원", "실인원 달성률"]]
+                        
+                        st.dataframe(
+                            goal_df, 
+                            use_container_width=True, 
+                            hide_index=True,
+                            column_config={
+                                "사업구분": st.column_config.TextColumn(width="medium"), # 유지
+                                "교육구분": st.column_config.TextColumn(width="medium"), # 유지
+                                "목표 연인원": st.column_config.TextColumn(width="small"),
+                                "연인원": st.column_config.TextColumn(width="small"),
+                                "연인원 달성률": st.column_config.TextColumn(width="small"),
+                                "목표 실인원": st.column_config.TextColumn(width="small"),
+                                "실인원": st.column_config.TextColumn(width="small"),
+                                "실인원 달성률": st.column_config.TextColumn(width="small")
+                            }
+                        )
+                        make_excel_download(goal_df, f"목표달성현황_{current_filter_label}")
+                    else:
+                        st.info("교육 카테고리(education_categories) 설정이 확인되지 않습니다.")
+
+                    st.markdown("---")
+
+                    # (Duplicate helper function removed)
+
 
                     # -------------------------------------------------------------
                     # [1] 대분류(business_category)별 인원수 4가지
@@ -1759,43 +2028,38 @@ def main():
 
                     st.markdown("---")
 
+                    
                     # -------------------------------------------------------------
-                    # [4] 월말 기준 누적 실인원 수 비교
+                    # [4] 기간 누적 실인원 상세 비교 (수정됨)
                     # -------------------------------------------------------------
-                    st.subheader("4. 월말 기준 누적 실인원 상세 비교")
+                    st.subheader("4. 기간 누적 실인원 상세 비교")
                     
-                    months = [f"{i}월" for i in range(1, 13)]
-                    col_sel, col_empty = st.columns([1, 3])
-                    target_month_str = col_sel.selectbox("기준 월 선택", months, index=datetime.now().month - 1)
+                    # [수정] 상단 기간 설정(filtered_df)에 종속
+                    # filtered_df는 이미 날짜 필터링이 된 상태임. 여기서 중복 제거만 하면 실인원.
                     
-                    target_month = int(target_month_str.replace("월", ""))
-                    
-                    # [로직] 선택한 월의 '말일'까지 출석한 기록이 있는 모든 고유 이용자 추출
-                    # 1. 날짜 필터링
-                    current_year_val = datetime.now().year
-                    # 해당 월의 마지막 날짜 계산이 복잡하므로, 그냥 해당 월에 포함되거나 이전인 데이터 필터링
-                    filtered_m = df_m[df_m['attendance_date'].dt.month <= target_month]
-                    
-                    # 2. 고유 ID 추출 (이게 누적 실인원)
-                    active_user_ids = filtered_m['user_id'].unique()
-                    
-                    # 3. 해당 ID들의 상세 정보만 뽑아서 분석용 DF 생성 (User Info merge 된 df_m 활용하되 중복 제거)
-                    # df_m은 출석 건수만큼 행이 있으므로, user_id로 drop_duplicates 해야 사람 기준이 됨
-                    df_active_users = df_m[df_m['user_id'].isin(active_user_ids)].drop_duplicates(subset=['user_id']).copy()
-                    
-                    if df_active_users.empty:
-                        st.warning(f"{target_month_str}까지의 실인원 데이터가 없습니다.")
+                    if filtered_df.empty:
+                        st.warning("선택된 기간에 데이터가 없습니다.")
                     else:
-                        st.info(f"📅 **{target_month_str}말 기준** 누적 실인원: **{len(df_active_users)}명**")
+                        # 중복 제거 (실인원 기준)
+                        df_active_users = filtered_df.drop_duplicates(subset=['user_id']).copy()
+                        
+                        st.info(f"📅 **[{current_filter_label}]** 누적 실인원: **{len(df_active_users)}명**")
                         
                         # 분석을 위한 전처리
+                        current_year_val = datetime.now().year
+
                         # 성별
                         df_active_users['gender_clean'] = df_active_users['gender'].apply(lambda x: x if x in ['남', '여'] else '기타')
-                        # 장애여부 (위에서 만든 disability_status 사용)
+                        
+                        # 장애여부 (위에서 만든 disability_status 사용, 없으면 다시 생성)
+                        if 'disability_status' not in df_active_users.columns:
+                             df_active_users['disability_status'] = df_active_users['is_disabled'].apply(get_disability_type)
+                        
                         # 학령기여부
                         def get_age_type(val):
                             return "학령기" if str(val).upper() == "TRUE" else "성인기"
                         df_active_users['age_type'] = df_active_users['is_school_age'].apply(get_age_type)
+                        
                         # 신규/기존 여부
                         def get_reg_type(reg_date):
                             try:
@@ -1806,7 +2070,7 @@ def main():
                                     return "신규" if year == current_year_val else "기존"
                             except:
                                 pass
-                            return "기존" # 날짜 없으면 보통 기존으로 간주하거나 예외처리
+                            return "기존" 
                         df_active_users['reg_type'] = df_active_users['registration date'].apply(get_reg_type)
 
                         # ---------------------------------------------------------
@@ -1832,13 +2096,11 @@ def main():
                             st.markdown("**a. 성별 × 장애유형 (실인원)**")
                             df_a_tbl = make_crosstab('gender_clean', 'disability_status', '성별', {'장애':'장애', '비장애':'비장애', '기타':'기타'})
                             st.dataframe(df_a_tbl, use_container_width=True, hide_index=True)
-                            make_excel_download(df_a_tbl, f"{target_month}월_성별_장애유형_실인원")
 
                         with t2:
                             st.markdown("**b. 성별 × 생애주기 (실인원)**")
                             df_b_tbl = make_crosstab('gender_clean', 'age_type', '성별', {'학령기':'학령기', '성인기':'성인기'})
                             st.dataframe(df_b_tbl, use_container_width=True, hide_index=True)
-                            make_excel_download(df_b_tbl, f"{target_month}월_성별_생애주기_실인원")
 
                         st.markdown("<div style='height: 10px;'></div>", unsafe_allow_html=True)
                         t3, t4 = st.columns(2)
@@ -1865,13 +2127,11 @@ def main():
                             # 요청사항: "기존인원 중 장애, 비장애 실인원 구분" -> 표 형태가 모호하므로 '성별'을 행으로 두겠습니다.
                             df_c_tbl = make_crosstab_sub(df_existing, 'gender_clean', 'disability_status', '성별(기존)', {'장애':'장애', '비장애':'비장애'})
                             st.dataframe(df_c_tbl, use_container_width=True, hide_index=True)
-                            make_excel_download(df_c_tbl, f"{target_month}월_기존_장애비장애")
 
                         with t4:
                             st.markdown("**d. 기존인원 중 학령기/성인기 (실인원)**")
                             df_d_tbl = make_crosstab_sub(df_existing, 'gender_clean', 'age_type', '성별(기존)', {'학령기':'학령기', '성인기':'성인기'})
                             st.dataframe(df_d_tbl, use_container_width=True, hide_index=True)
-                            make_excel_download(df_d_tbl, f"{target_month}월_기존_생애주기")
 
                         st.markdown("<div style='height: 10px;'></div>", unsafe_allow_html=True)
                         t5, t6 = st.columns(2)
@@ -1880,13 +2140,11 @@ def main():
                             st.markdown("**e. 신규인원 중 장애/비장애 (실인원)**")
                             df_e_tbl = make_crosstab_sub(df_new, 'gender_clean', 'disability_status', '성별(신규)', {'장애':'장애', '비장애':'비장애'})
                             st.dataframe(df_e_tbl, use_container_width=True, hide_index=True)
-                            make_excel_download(df_e_tbl, f"{target_month}월_신규_장애비장애")
 
                         with t6:
                             st.markdown("**f. 신규인원 중 학령기/성인기 (실인원)**")
                             df_f_tbl = make_crosstab_sub(df_new, 'gender_clean', 'age_type', '성별(신규)', {'학령기':'학령기', '성인기':'성인기'})
                             st.dataframe(df_f_tbl, use_container_width=True, hide_index=True)
-                            make_excel_download(df_f_tbl, f"{target_month}월_신규_생애주기")
 
                     st.markdown("---")
 
@@ -2344,42 +2602,47 @@ def main():
                     if temp_edu_val in filtered_edu_list:
                         edu_idx = filtered_edu_list.index(temp_edu_val)
 
-                if not filtered_edu_list:
-                    st.warning(f"⚠️ '{sel_biz_cat}'에 등록된 교육구분이 없습니다.")
-                    sel_edu_cat = None
-                else:
-                    sel_edu_cat = st.selectbox("2. 교육구분명(중분류)", filtered_edu_list, index=edu_idx)
+                # (3) 폼 시작: 중분류 ~ 나머지 입력값
+                with st.form("class_manage_form"):
+                    if not filtered_edu_list:
+                        st.warning(f"⚠️ '{sel_biz_cat}'에 등록된 교육구분이 없습니다.")
+                        sel_edu_cat = st.selectbox("2. 교육구분명(중분류)", ["(없음)"], disabled=True)
+                    else:
+                        sel_edu_cat = st.selectbox("2. 교육구분명(중분류)", filtered_edu_list, index=edu_idx)
 
-                # (3) 나머지 입력 필드
-                c1, c2, c3 = st.columns(3)
-                input_class_name = c1.text_input("3. 수업명(소분류)", value=def_c_name)
-                input_instructor = c2.text_input("4. 강사명", value=def_c_inst)                      
-                input_start_date = c3.text_input("5. 강의 시작일 (예: 20240101)", placeholder="YYYYMMDD", value=def_c_date)
-                
-                st.markdown("---")
-
-                # -----------------------------------------------------------------
-                # [버튼 로직] 테두리 안쪽에 버튼 배치 (꽉 찬 스타일 적용)
-                # -----------------------------------------------------------------
-                if mode_class == "register":
-                    # 신규 등록
+                    c1, c2, c3 = st.columns(3)
+                    input_class_name = c1.text_input("3. 수업명(소분류)", value=def_c_name)
+                    input_instructor = c2.text_input("4. 강사명", value=def_c_inst)                      
+                    input_start_date = c3.text_input("5. 강의 시작일 (예: 20240101)", placeholder="YYYYMMDD", value=def_c_date)
                     
-                    if st.button("등록하기", type="primary", use_container_width=True):
-                        if not sel_edu_cat:
-                            st.toast("교육구분을 선택해야 합니다.", icon="⚠️")
-                        elif not input_class_name:
-                            st.toast("수업명을 입력해주세요.", icon="⚠️")
-                        else:
-                            new_class_id = f"C{int(time.time())}"
-                            ws_c.append_row([new_class_id, input_class_name, sel_biz_cat, sel_edu_cat, input_instructor, input_start_date])
-                            st.toast(f"수업 '{input_class_name}' 등록 완료!", icon="✅")
-                            time.sleep(1)
-                            st.rerun()
-                else:
-                    # 수정/삭제
-                    b1, b2 = st.columns(2)
-                    with b1:
-                        if st.button("수정하기", type="primary", use_container_width=True):
+                    st.markdown("---")
+    
+                    # -----------------------------------------------------------------
+                    # [버튼 로직] 폼 내부 버튼 (form_submit_button)
+                    # -----------------------------------------------------------------
+                    if mode_class == "register":
+                        # 신규 등록
+                        
+                        if st.form_submit_button("등록하기", type="primary", use_container_width=True):
+                            if not sel_edu_cat or sel_edu_cat == "(없음)":
+                                st.toast("교육구분을 선택해야 합니다.", icon="⚠️")
+                            elif not input_class_name:
+                                st.toast("수업명을 입력해주세요.", icon="⚠️")
+                            else:
+                                new_class_id = f"C{int(time.time())}"
+                                ws_c.append_row([new_class_id, input_class_name, sel_biz_cat, sel_edu_cat, input_instructor, input_start_date])
+                                st.toast(f"수업 '{input_class_name}' 등록 완료!", icon="✅")
+                                time.sleep(1)
+                                st.rerun()
+                    else:
+                        # 수정/삭제
+                        b1, b2 = st.columns(2)
+                        with b1:
+                            is_update = st.form_submit_button("수정하기", type="primary", use_container_width=True)
+                        with b2:
+                            is_delete = st.form_submit_button("삭제하기", type="primary", use_container_width=True)
+
+                        if is_update:
                             if not sel_edu_cat or not input_class_name:
                                 st.error("필수 정보를 입력해주세요.")
                             else:
@@ -2392,8 +2655,8 @@ def main():
                                     st.rerun()
                                 except Exception as e:
                                     st.error(f"수정 오류: {e}")
-                    with b2:
-                        if st.button("삭제하기", type="primary", use_container_width=True):
+                        
+                        if is_delete:
                             confirm_delete_class(target_class_id, input_class_name)
             
             # 1-5. 수업 목록 표
@@ -2429,6 +2692,8 @@ def main():
                 # 2-2. 교육구분 폼 초기값
                 def_e_biz = BUSINESS_CATEGORIES[0]
                 def_e_name = ""
+                def_e_goal_num = 0
+                def_e_goal_mem = 0
                 def_e_type = "내부수업"
                 target_cat_id = None
 
@@ -2444,6 +2709,21 @@ def main():
                         
                         if row_e['class_type'] in ["내부수업", "외부수업"]:
                             def_e_type = row_e['class_type']
+                        
+                        # 목표 연인원 (category_goal_num)
+                        if 'category_goal_num' in row_e.index:
+                            try:
+                                def_e_goal_num = int(float(str(row_e['category_goal_num']).strip() or 0))
+                            except:
+                                def_e_goal_num = 0
+
+                        # 목표 실인원 (category_goal_mem)
+                        if 'category_goal_mem' in row_e.index:
+                            try:
+                                def_e_goal_mem = int(float(str(row_e['category_goal_mem']).strip() or 0))
+                            except:
+                                def_e_goal_mem = 0
+
                             
                         st.info(f"✏️ 교육구분 '{def_e_name}'을(를) 수정하거나 삭제할 수 있습니다.")
                     except:
@@ -2453,6 +2733,10 @@ def main():
                 with st.form("new_edu_category"):
                     e_biz = st.selectbox("사업구분 (대분류)", BUSINESS_CATEGORIES, index=BUSINESS_CATEGORIES.index(def_e_biz) if def_e_biz in BUSINESS_CATEGORIES else 0)
                     e_name = st.text_input("교육구분명 (중분류) 입력", placeholder="예: 한글기초교육", value=def_e_name)
+                    
+                    c_goal1, c_goal2 = st.columns(2)
+                    e_goal_num = c_goal1.number_input("1. 목표 중분류 연인원", min_value=0, value=def_e_goal_num, step=1)
+                    e_goal_mem = c_goal2.number_input("2. 목표 중분류 실인원", min_value=0, value=def_e_goal_mem, step=1)
                     
                     type_opts = ["내부수업", "외부수업"]
                     e_type = st.selectbox("유형", type_opts, index=type_opts.index(def_e_type) if def_e_type in type_opts else 0)
@@ -2471,7 +2755,7 @@ def main():
                                     st.error("이미 등록된 교육구분입니다.")
                                 else:
                                     new_cat_id = f"E{int(time.time())}"
-                                    ws_edu.append_row([new_cat_id, e_biz, e_name, e_type])
+                                    ws_edu.append_row([new_cat_id, e_biz, e_name, e_type, e_goal_num, e_goal_mem])
                                     st.success(f"교육구분 '{e_name}' 등록 완료!")
                                     st.cache_data.clear()
                                     time.sleep(1)
@@ -2491,7 +2775,8 @@ def main():
                                 try:
                                     cell = ws_edu.find(target_cat_id)
                                     row_n = cell.row
-                                    ws_edu.update(f"A{row_n}:D{row_n}", [[target_cat_id, e_biz, e_name, e_type]])
+                                    # A~F열 업데이트 (ID, 사업구분, 교육구분명, 유형, 목표연인원, 목표실인원)
+                                    ws_edu.update(f"A{row_n}:F{row_n}", [[target_cat_id, e_biz, e_name, e_type, e_goal_num, e_goal_mem]])
                                     st.toast("교육구분 수정 완료!", icon="✅")
                                     st.cache_data.clear()
                                     time.sleep(1)
