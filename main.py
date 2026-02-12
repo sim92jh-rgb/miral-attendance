@@ -56,7 +56,7 @@ def close_keyboard_focus():
 # 1. 환경 설정 및 데이터 준비
 # -----------------------------------------------------------------------------
 st.set_page_config(
-    page_title="헬렌켈러 이용자관리",
+    page_title="헬렌켈러 출석관리",
     page_icon="🌱",
     layout="wide",
     initial_sidebar_state="expanded" # ⭐ 시작할 때 사이드바 강제 열림 (CSS로 버튼을 숨겨서 고정 효과)
@@ -686,7 +686,7 @@ def main():
         
         # 화면 수직 중앙 정렬 효과를 위한 여백
         st.markdown("<br><br><br>", unsafe_allow_html=True)
-        st.markdown(f"<h1 style='text-align: center; color: {COLOR_PRIMARY};'>헬렌켈러센터 출석관리</h1>", unsafe_allow_html=True)
+        st.markdown(f"<h1 style='text-align: center; color: {COLOR_PRIMARY};'>헬렌켈러 출석관리</h1>", unsafe_allow_html=True)
         st.markdown("<p style='text-align: center; color: #666; margin-bottom: 30px;'>사용자 유형에 맞게 접속해주세요.</p>", unsafe_allow_html=True)
         
         # 좌우 컬럼 분할 (중앙 정렬을 위해 빈 컬럼 사용: 1 : 4 : 1 : 4 : 1 비율)
