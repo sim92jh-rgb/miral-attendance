@@ -1790,6 +1790,9 @@ def main():
                     df_a['class_id'] = df_a['class_id'].astype(str)
                     df_c['class_id'] = df_c['class_id'].astype(str)
                     df_a['attendance_date'] = pd.to_datetime(df_a['attendance_date'])
+                    date_format_check = pd.to_datetime(df_ext['attendance_date'], errors='coerce')
+                    df_ext['attendance_date'] = date_format_check
+                    
                     df_ext['external_count'] = pd.to_numeric(df_ext['external_count'], errors='coerce').fillna(0)
                     df_ext['external_member'] = pd.to_numeric(df_ext['external_member'], errors='coerce').fillna(0)
                     df_ext['class_id'] = df_ext['class_id'].astype(str)
@@ -1812,6 +1815,7 @@ def main():
                     range_input = fc3.text_input("기간 상세 조회 (YYMMDD~YYMMDD)", placeholder="예: 240101~240228", key="stats_range")
                     
                     filtered_df = df_m.copy()
+                    filtered_ext_df = df_ext_merged.copy() # 외부 데이터도 필터링 준비
                     
                     # 반기 컬럼 미리 생성 (통계용)
                     filtered_df['half'] = filtered_df['attendance_date'].apply(lambda d: '상반기' if d.month <= 6 else '하반기')
@@ -1823,22 +1827,32 @@ def main():
                             start_s, end_s = range_input.split('~')
                             start_dt = datetime.strptime(start_s.strip(), "%y%m%d")
                             end_dt = datetime.strptime(end_s.strip(), "%y%m%d")
-                            filtered_df = filtered_df[
-                                (filtered_df['attendance_date'] >= start_dt) & 
-                                (filtered_df['attendance_date'] <= end_dt)
-                            ]
+                            
+                            mask_m = (filtered_df['attendance_date'] >= start_dt) & (filtered_df['attendance_date'] <= end_dt)
+                            filtered_df = filtered_df[mask_m]
+                            
+                            if not filtered_ext_df.empty:
+                                mask_e = (filtered_ext_df['attendance_date'] >= start_dt) & (filtered_ext_df['attendance_date'] <= end_dt)
+                                filtered_ext_df = filtered_ext_df[mask_e]
+                            
                             current_filter_label = f"{start_dt.strftime('%Y-%m-%d')} ~ {end_dt.strftime('%Y-%m-%d')}"
                         except:
                             st.error("기간 형식이 올바르지 않습니다.")
                     elif sel_half == "상반기 (1~6월)":
                         filtered_df = filtered_df[filtered_df['attendance_date'].dt.month.isin(range(1, 7))]
+                        if not filtered_ext_df.empty:
+                            filtered_ext_df = filtered_ext_df[filtered_ext_df['attendance_date'].dt.month.isin(range(1, 7))]
                         current_filter_label = f"{datetime.now().year}년 상반기"
                     elif sel_half == "하반기 (7~12월)":
                         filtered_df = filtered_df[filtered_df['attendance_date'].dt.month.isin(range(7, 13))]
+                        if not filtered_ext_df.empty:
+                            filtered_ext_df = filtered_ext_df[filtered_ext_df['attendance_date'].dt.month.isin(range(7, 13))]
                         current_filter_label = f"{datetime.now().year}년 하반기"
                     elif sel_month != "전체":
                         target_month = int(sel_month.replace("월", ""))
                         filtered_df = filtered_df[filtered_df['attendance_date'].dt.month == target_month]
+                        if not filtered_ext_df.empty:
+                            filtered_ext_df = filtered_ext_df[filtered_ext_df['attendance_date'].dt.month == target_month]
                         current_filter_label = f"{datetime.now().year}년 {target_month}월"
 
                     # -------------------------------------------------------------
@@ -1847,6 +1861,19 @@ def main():
                     st.markdown("---")
                     st.markdown("### 📈 종합 인원 집계")
                     c_real, c_cum, c_sub, c_sub_per = calculate_stat_metrics(filtered_df)
+                    
+                    # 외부 데이터 종합 집계 추가
+                    e_real_sum = 0
+                    e_cum_sum = 0
+                    if not filtered_ext_df.empty:
+                        e_real_sum = filtered_ext_df['external_member'].sum()
+                        e_cum_sum = filtered_ext_df['external_count'].sum()
+                        
+                    # 종합 집계에 더하기 (단순 합산)
+                    c_real += e_real_sum 
+                    c_cum += e_cum_sum
+                    c_sub += e_real_sum
+                    c_sub_per += e_real_sum
 
                     def style_metric(label, value, sub_text):
                         return f"""
@@ -1861,8 +1888,8 @@ def main():
                     m1, m2, m3, m4 = st.columns(4)
                     with m1: st.markdown(style_metric("① 실인원", f"{c_real:,}명", "순수 이용자 수"), unsafe_allow_html=True)
                     with m2: st.markdown(style_metric("② 연인원", f"{c_cum:,}명", "총 출석 횟수"), unsafe_allow_html=True)
-                    with m3: st.markdown(style_metric("③ 과목구분 실인원", f"{c_sub:,}명", "과목별 이용자 합산"), unsafe_allow_html=True)
-                    with m4: st.markdown(style_metric("④ 과목반기구분 실인원", f"{c_sub_per:,}명", "과목+반기별 이용자 합산"), unsafe_allow_html=True)
+                    with m3: st.markdown(style_metric("③ 과목구분 실인원", f"{c_sub:,}명", "동일인이라도 수강과목이 다르면 따로 집계"), unsafe_allow_html=True)
+                    with m4: st.markdown(style_metric("④ 과목반기구분 실인원", f"{c_sub_per:,}명", "수강과목, 기간(반기)이 다르면 따로 집계"), unsafe_allow_html=True)
 
                     st.markdown("---")
                     
@@ -1923,6 +1950,21 @@ def main():
                             else:
                                 g_cum = 0
                                 g_real = 0
+                            
+                            # [추가] 외부 데이터 반영
+                            ext_cum_val = 0
+                            ext_real_val = 0
+                            
+                            if not filtered_ext_df.empty:
+                                target_ext = filtered_ext_df[
+                                    (filtered_ext_df['business_category'] == b_cat) & 
+                                    (filtered_ext_df['education_category'] == e_cat)
+                                ]
+                                ext_cum_val = target_ext['external_count'].sum()
+                                ext_real_val = target_ext['external_member'].sum()
+                            
+                            g_cum += ext_cum_val
+                            g_real += ext_real_val
                                 
                             # 달성률
                             r_cum = (g_cum / t_cum * 100) if t_cum > 0 else 0
