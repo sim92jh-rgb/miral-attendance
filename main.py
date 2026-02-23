@@ -496,9 +496,13 @@ def connect_db():
     else:
         try:
             if "gcp_service_account" in st.secrets:
-                creds = ServiceAccountCredentials.from_json_keyfile_dict(st.secrets["gcp_service_account"], scope)
-        except:
-            pass
+                # st.secrets를 파이썬 기본 딕셔너리로 변환
+                secret_dict = dict(st.secrets["gcp_service_account"])
+                creds = ServiceAccountCredentials.from_json_keyfile_dict(secret_dict, scope)
+        except Exception as e:
+            # 에러가 나면 그냥 넘어가지 말고 화면에 빨간색으로 출력!
+            st.error(f"🚨 시크릿 연결 에러 발생: {e}")
+            st.stop()
     if not creds: return None
     client = gspread.authorize(creds)
     try:
@@ -2900,5 +2904,4 @@ def main():
                 )
 
 if __name__ == "__main__":
-
     main()
