@@ -1,0 +1,13 @@
+name: Keep Streamlit Alive
+
+on:
+  schedule:
+    - cron: '0 */12 * * *' # 12시간마다 한 번씩 실행 (UTC 기준)
+  workflow_dispatch: # 수동으로도 실행 가능하게 설정
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping Streamlit App
+        run: curl -I https://miral-edu.streamlit.app
