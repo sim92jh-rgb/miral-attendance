@@ -832,7 +832,7 @@ def main():
             """
             <div style='text-align: center; margin-top:-89px;'>
                 <p class='version-text'>
-                    ver.26.02-2
+                    ver.26.03-1
                 </p>
             </div>
             """, 
