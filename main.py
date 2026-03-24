@@ -818,8 +818,10 @@ def main():
             "📅 작업 연도", 
             year_options, 
             index=default_idx,
+            format_func=lambda y: f"{y}(추후 업데이트)" if y == 2025 else str(y),
             label_visibility="collapsed"
         )
+        # 원래 코드 year_options = list(range(2025, this_year + 1))
         
         # [중요] 선택된 연도의 뒤 2자리만 추출 (예: 2026 -> "26")
         # 이 변수(yy)를 다음 단계(시트 연결)에서 사용합니다.
@@ -1134,7 +1136,7 @@ def main():
                                 filtered_df = filtered_df[filtered_df['attendance_date'].dt.month == target_month]
 
                             # 순서 변경: 날짜, 시간, 사업구분, 교육구분, 수업명, 강사명
-                            display_cols = ['attendance_date', 'attendance_time', 'business_category', 'education_category', 'class_name', 'instructor_name']
+                            display_cols = ['attendance_date', 'attendance_time', 'business_category', 'education_category', 'class_name', 'instructor_name', 'detail']
                             existing_cols = [c for c in display_cols if c in filtered_df.columns]
                             
                             display_df = filtered_df[existing_cols].copy()
@@ -1145,6 +1147,7 @@ def main():
                                 'education_category': '교육 구분',
                                 'class_name': '수업명',
                                 'instructor_name': '강사명',
+                                'detail': '내용',
                             }, inplace=True)
                             
                             if '출석 날짜' in display_df.columns:
@@ -1184,6 +1187,7 @@ def main():
                                     "교육 구분": st.column_config.TextColumn(width="medium"),
                                     "수업명": st.column_config.TextColumn(width="medium"),
                                     "강사명": st.column_config.TextColumn(width="small"),
+                                    "비고": st.column_config.TextColumn(width="medium"),
                                 }
                             )
                     else:
@@ -2257,14 +2261,17 @@ def main():
                     # -------------------------------------------------------------
                     st.subheader("📊 월별 추이 그래프")
                     
-                    # 그래프용 데이터 집계 (1월 ~ 12월)
+                    # 그래프용 데이터 집계 (선택 연도가 올해면 현재 월까지, 과거 연도면 12월까지)
                     monthly_stats = []
                     
                     # 누적 계산을 위한 변수
                     prev_cum_real = 0
                     
-                    # 1월부터 12월까지 순회
-                    for m in range(1, 13):
+                    # 표시할 최대 월 결정
+                    max_month = datetime.now().month if selected_year == this_year else 12
+                    
+                    # 1월부터 max_month까지 순회
+                    for m in range(1, max_month + 1):
                         # 해당 월까지의 데이터 (누적용)
                         mask_cum = df_m['attendance_date'].dt.month <= m
                         df_cum = df_m[mask_cum]
@@ -2565,7 +2572,10 @@ def main():
                 key="user_grid",
                 on_select="rerun", 
                 selection_mode="single-row",
-                hide_index=True
+                hide_index=True,
+                column_config={
+                    "user_id": None,
+                }
             )
 
         # =========================================================================
@@ -2771,7 +2781,10 @@ def main():
                 key="class_grid", 
                 on_select="rerun", 
                 selection_mode="single-row", 
-                hide_index=True
+                hide_index=True,
+                column_config={
+                    "class_id": None,
+                }
             )
             
             st.markdown("<div style='height: 40px;'></div>", unsafe_allow_html=True)
@@ -2900,7 +2913,10 @@ def main():
                     key="edu_grid", 
                     on_select="rerun", 
                     selection_mode="single-row", 
-                    hide_index=True
+                    hide_index=True,
+                    column_config={
+                        "category_id": None,
+                    }
                 )
 
 if __name__ == "__main__":
