@@ -2008,18 +2008,18 @@ def main():
                     
                     biz_stats = []
                     # 데이터에 있는 사업구분만 추출하거나, 미리 정의된 카테고리 전체를 순회
-                    unique_biz = sorted(df_m['business_category'].dropna().unique())
-                    
+                    unique_biz = sorted(filtered_df['business_category'].dropna().unique())
+
                     # [수정] 1. 사업구분별 현황 로직 교체
                     biz_stats = []
-                    # df_m에 없는 사업구분이라도 외부수업에는 있을 수 있으므로 전체 목록 사용
+                    # 외부수업에만 있는 사업구분도 있을 수 있으므로 전체 목록 사용
                     for biz in BUSINESS_CATEGORIES:
-                        # 1) 내부 데이터 계산
-                        sub_df = df_m[df_m['business_category'] == biz]
+                        # 1) 내부 데이터 계산 (상단 기간 필터 적용)
+                        sub_df = filtered_df[filtered_df['business_category'] == biz]
                         r, c, s, sp = calculate_stat_metrics(sub_df)
-                        
-                        # 2) 외부 데이터 계산 (아까 만든 df_ext_merged 활용)
-                        sub_ext = df_ext_merged[df_ext_merged['business_category'] == biz]
+
+                        # 2) 외부 데이터 계산 (상단 기간 필터 적용)
+                        sub_ext = filtered_ext_df[filtered_ext_df['business_category'] == biz]
                         ext_r = sub_ext['external_member'].sum() # 외부 실인원 합계
                         ext_c = sub_ext['external_count'].sum()  # 외부 연인원 합계
                         
@@ -2057,16 +2057,16 @@ def main():
                     st.subheader("2. 교육구분(중분류)별 인원 현황")
                     
                     edu_stats = []
-                    unique_edu = sorted(df_m['education_category'].dropna().unique()) # 혹은 education_category 컬럼명 확인
+                    unique_edu = sorted(filtered_df['education_category'].dropna().unique()) # 혹은 education_category 컬럼명 확인
                     unique_edu_all = df_edu['category_name'].unique() if not df_edu.empty else []
 
                     for edu in unique_edu_all:
-                        # 1) 내부 데이터 계산
-                        sub_df = df_m[df_m['education_category'] == edu]
+                        # 1) 내부 데이터 계산 (상단 기간 필터 적용)
+                        sub_df = filtered_df[filtered_df['education_category'] == edu]
                         r, c, s, sp = calculate_stat_metrics(sub_df)
-                        
-                        # 2) 외부 데이터 계산
-                        sub_ext = df_ext_merged[df_ext_merged['education_category'] == edu]
+
+                        # 2) 외부 데이터 계산 (상단 기간 필터 적용)
+                        sub_ext = filtered_ext_df[filtered_ext_df['education_category'] == edu]
                         ext_r = sub_ext['external_member'].sum()
                         ext_c = sub_ext['external_count'].sum()
                         
@@ -2116,13 +2116,13 @@ def main():
                         elif val_str == "FALSE": return "비장애"
                         else: return "기타"
                     
-                    df_m['disability_status'] = df_m['is_disabled'].apply(get_disability_type)
-                    
+                    filtered_df['disability_status'] = filtered_df['is_disabled'].apply(get_disability_type)
+
                     dis_stats = []
                     unique_dis = ["장애", "비장애", "기타"] # 순서 고정
-                    
+
                     for d_type in unique_dis:
-                        sub_df = df_m[df_m['disability_status'] == d_type]
+                        sub_df = filtered_df[filtered_df['disability_status'] == d_type]
                         if sub_df.empty and d_type == "기타": continue # 기타가 없으면 생략 가능
                         
                         r, c, s, sp = calculate_stat_metrics(sub_df)
