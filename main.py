@@ -65,6 +65,7 @@ st.set_page_config(
 COLOR_PRIMARY = "#2E7D32"
 SIDEBAR_COLOR = "#2E7D32"
 
+# 사업영역 추가시 여기만 추가하면 됨
 BUSINESS_CATEGORIES = [
     '의사소통기술교육사업', 
     '정보화교육사업', 
@@ -72,7 +73,8 @@ BUSINESS_CATEGORIES = [
     '발굴 및 개별화지원사업', 
     '권익옹호 및 인식개선사업', 
     '시청각장애 전문인력 역량강화사업',
-    '일상생활 및 사회활동지원사업'
+    '일상생활 및 사회활동지원사업',
+    'AI로 소통하는 헬렌켈러'
 ]
 
 # ✅ 성경구절
@@ -832,7 +834,7 @@ def main():
             """
             <div style='text-align: center; margin-top:-89px;'>
                 <p class='version-text'>
-                    ver.26.03-1
+                    ver.26.04-1
                 </p>
             </div>
             """, 
